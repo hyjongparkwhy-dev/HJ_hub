@@ -1,0 +1,51 @@
+name: brief
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: brief sends today's briefing; feedback only reads 👍/👎 presses
+        type: choice
+        options: [brief, feedback]
+        default: brief
+
+concurrency:
+  group: brief
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: collector
+    env:
+      FASTEMBED_CACHE: ${{ github.workspace }}/.cache/fastembed
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Same model cache as the collect workflow; ranking embeds the seed topics.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/fastembed
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: collector/requirements.txt
+      - run: pip install -r requirements.txt
+      # Prints counts only: this repository and its logs are public.
+      - run: python -m hub_collect.brief $MODE_ARGS
+        env:
+          # The evening schedule (added once the bot exists) only collects presses: Telegram keeps them 24 hours.
+          MODE_ARGS: ${{ (github.event.schedule == '0 12 * * *' || inputs.mode == 'feedback') && '--feedback-only' || '' }}
+          HUB_DATABASE_URL: ${{ secrets.HUB_DATABASE_URL }}
+          HUB_TELEGRAM_TOKEN: ${{ secrets.HUB_TELEGRAM_TOKEN }}
+          HUB_TELEGRAM_CHAT_ID: ${{ secrets.HUB_TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

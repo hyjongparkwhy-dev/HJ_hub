@@ -8,6 +8,15 @@ def test_env_wins_over_file(tmp_path):
     assert load_database_url({}, f) == "from-file"
 
 
+def test_any_setting_reads_the_same_way(tmp_path):
+    from hub_collect.settings import load_setting
+
+    f = tmp_path / ".env"
+    f.write_text("HUB_TELEGRAM_CHAT_ID='123'\nGEMINI_API_KEY=\n", encoding="utf-8")
+    assert load_setting("HUB_TELEGRAM_CHAT_ID", {}, f) == "123"
+    assert load_setting("GEMINI_API_KEY", {}, f) is None
+
+
 def test_missing_is_none(tmp_path):
     assert load_database_url({}, tmp_path / "none.env") is None
     assert load_database_url({"HUB_DATABASE_URL": "  "}, tmp_path / "none.env") is None
