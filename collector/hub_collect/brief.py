@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from hub_collect.brief_store import BriefStore
 from hub_collect.embed import Embedder
-from hub_collect.rank import pick, score_all
+from hub_collect.rank import Signal, pick, score_all
 from hub_collect.settings import load_database_url, load_setting
 from hub_collect.store import connect
 from hub_collect.summarize import GeminiSummarizer, SummaryError, fallback
@@ -21,6 +21,8 @@ from hub_collect.topics import TOPICS
 KST = timezone(timedelta(hours=9))  # Korea has no daylight saving time
 WINDOW_HOURS = 48
 BRIEF_SIZE = 10
+FEEDBACK_DAYS = 90  # older votes stop steering, so interests can drift
+FEEDBACK_LIMIT = 200  # per direction; keeps scoring fast in pure Python
 
 
 def kst_day(now: datetime) -> date:
@@ -52,7 +54,10 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
     if not candidates:
         stats["skipped"] = "no_candidates"
         return stats, None
-    picked = pick(score_all(candidates, embedder.vectors([t.text for t in TOPICS]), now), size=BRIEF_SIZE)
+    seeds = [Signal(f"주제: {t.label}", v) for t, v in zip(TOPICS, embedder.vectors([t.text for t in TOPICS]), strict=True)]
+    liked, disliked = store.feedback_signals(FEEDBACK_DAYS, FEEDBACK_LIMIT)
+    stats["liked"], stats["disliked"] = len(liked), len(disliked)
+    picked = pick(score_all(candidates, seeds, now, liked, disliked), size=BRIEF_SIZE)
     # Digests made earlier today are reused, so a rerun after a failed send does not spend Gemini quota again.
     digests = store.cached_digests(day)
     missing = [s.candidate for s in picked if s.candidate.id not in digests]
@@ -66,7 +71,7 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
             if not dry_run:
                 store.save_digests(day, digests)
     stats["summarized"] = sum(s.candidate.id in digests for s in picked)
-    entries = [(s.candidate, digests.get(s.candidate.id) or fallback(s.candidate)) for s in picked]
+    entries = [(s.candidate, digests.get(s.candidate.id) or fallback(s.candidate), s.reason) for s in picked]
     text, keyboard = format_brief(day, entries)
     stats["picked"] = len(entries)
     if dry_run:
@@ -76,7 +81,7 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
     # (a missed briefing is better than a duplicate).
     uncertain = None
     with store.transaction():
-        brief_id = store.save_brief(day, picked, [d for _, d in entries], stats)
+        brief_id = store.save_brief(day, picked, [d for _, d, _ in entries], stats)
         try:
             store.set_message(brief_id, telegram.send(text, keyboard))
         except TelegramError as e:

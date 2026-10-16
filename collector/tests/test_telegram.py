@@ -28,11 +28,12 @@ class FakePost:
 
 
 def test_format_escapes_html_and_numbers_buttons():
-    entries = [(cand(7), Digest("A<B & C", "요약")), (cand(8, "tech"), Digest("둘째", ""))]
+    entries = [(cand(7), Digest("A<B & C", "요약"), "주제: 반도체"), (cand(8, "tech"), Digest("둘째", ""), "")]
     text, keyboard = format_brief(date(2026, 10, 17), entries)
     assert "10월 17일" in text
     assert "A&lt;B &amp; C" in text and 'href="https://x.test/7?a=1&amp;b=2"' in text
     assert "[투자]" in text and "[기술]" in text
+    assert "<i>주제: 반도체</i>" in text and text.count("<i>") == 1
     assert keyboard == [
         [
             {"text": "1 👍", "callback_data": "v:7:1"},
@@ -47,7 +48,7 @@ def test_format_drops_summaries_before_exceeding_the_limit():
     from hub_collect.telegram import visible_length
 
     long_url = "https://x.test/" + "p" * 3000
-    entries = [(cand(i, url=long_url), Digest("제목" * 30, "가" * 160)) for i in range(10)]
+    entries = [(cand(i, url=long_url), Digest("제목" * 30, "가" * 160), "") for i in range(10)]
     text, _ = format_brief(date(2026, 10, 17), entries, limit=2500)
     assert visible_length(text) <= 2500 < len(text)  # links do not count
     assert text.count("<a href") == 10
@@ -56,7 +57,7 @@ def test_format_drops_summaries_before_exceeding_the_limit():
 def test_format_drops_trailing_articles_as_a_last_resort():
     from hub_collect.telegram import visible_length
 
-    entries = [(cand(i), Digest("제목" * 40, "")) for i in range(10)]
+    entries = [(cand(i), Digest("제목" * 40, ""), "") for i in range(10)]
     text, keyboard = format_brief(date(2026, 10, 17), entries, limit=500)
     assert visible_length(text) <= 500 and 0 < text.count("<a href") < 10
 

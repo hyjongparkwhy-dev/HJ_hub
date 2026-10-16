@@ -26,11 +26,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The ~220MB embedding model is downloaded once and reused instead of fetched from Hugging Face daily.
+      # The ~1.2GB embedding model is downloaded once and reused instead of fetched from Hugging Face daily.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/fastembed
-          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+          key: fastembed-embeddinggemma-300m
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"

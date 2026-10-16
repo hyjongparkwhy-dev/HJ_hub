@@ -1,10 +1,14 @@
-"""Local multilingual sentence embeddings (free, no API)."""
+"""Local multilingual sentence embeddings (free, no API).
+
+EmbeddingGemma replaced paraphrase-multilingual-MiniLM on 2026-10-16: on hand-labelled Korean and English
+headlines it picked the right seed topic 18/19 times against 12/19, and MiniLM's quantized ONNX build rated
+unrelated Korean headlines 0.96 alike. It costs ~120 ms per item on CPU, a few seconds per daily run."""
 from __future__ import annotations
 
 from hub_collect.normalize import Item
 
-MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-DIM = 384
+MODEL_NAME = "google/embeddinggemma-300m"
+DIM = 768  # stored as halfvec, so a row costs what a 384-dim float vector did
 
 
 def embedding_text(item: Item) -> str:
@@ -12,7 +16,7 @@ def embedding_text(item: Item) -> str:
 
 
 class Embedder:
-    """Loads the model on first use so runs with nothing new skip the ~200MB download."""
+    """Loads the model on first use so runs with nothing new skip the ~1.2GB download."""
 
     def __init__(self, cache_dir: str | None = None):
         self._cache_dir = cache_dir

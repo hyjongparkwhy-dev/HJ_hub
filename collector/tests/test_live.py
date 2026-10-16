@@ -53,6 +53,10 @@ def test_live_brief_store_round_trip_is_rolled_back(conn):
         assert all(c.id != cand.id for c in store.candidates(1))  # briefed items are not offered again
         assert store.save_votes([Vote(cand.id, 1), Vote(cand.id, -1), Vote(-5, 1)]) == 2
         assert conn.execute("select vote from hub.feedback where item_id = %s", (cand.id,)).fetchone()[0] == -1
+        liked, disliked = store.feedback_signals(90, 200)
+        assert any(len(s.vector) == DIM for s in disliked)
+        assert all(s.label.startswith("👍 비슷: ") for s in liked)
+        assert conn.execute("select count(*) from hub.daily_feedback where brief_date = %s", (day,)).fetchone()[0] == 1
         store.save_offset(42)
         assert store.offset() == 42
 

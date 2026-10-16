@@ -46,19 +46,24 @@ def visible_length(text: str) -> int:
     return len(html.unescape(re.sub(r"<[^>]+>", "", text)))
 
 
-def _render(day: date, entries: Sequence[tuple[Candidate, Digest]], summary_limit: int) -> str:
+Entry = tuple[Candidate, Digest, str]  # the str is the reason it was picked, may be empty
+
+
+def _render(day: date, entries: Sequence[Entry], summary_limit: int) -> str:
     lines = [f"<b>📰 {day.month}월 {day.day}일 아침 브리핑</b>"]
-    for n, (c, d) in enumerate(entries, 1):
+    for n, (c, d, reason) in enumerate(entries, 1):
         lines.append("")
         lines.append(f'<b>{n}.</b> [{LABELS.get(c.category, c.category)}] <a href="{escape(c.url)}">{escape(d.title)}</a>')
         summary = d.summary[:summary_limit]
         if summary:
             lines.append(escape(summary))
+        if reason:
+            lines.append(f"<i>{escape(reason)}</i>")
     return "\n".join(lines)
 
 
 def format_brief(
-    day: date, entries: Sequence[tuple[Candidate, Digest]], limit: int = MESSAGE_LIMIT
+    day: date, entries: Sequence[Entry], limit: int = MESSAGE_LIMIT
 ) -> tuple[str, list[list[dict]]]:
     """Summaries shrink, then go, then trailing articles go, before the message would pass the length limit."""
     entries = list(entries)
@@ -70,7 +75,7 @@ def format_brief(
         entries.pop()
         text = _render(day, entries, 0)
     buttons = []
-    for n, (c, _) in enumerate(entries, 1):
+    for n, (c, _, _) in enumerate(entries, 1):
         buttons += [{"text": f"{n} 👍", "callback_data": f"v:{c.id}:1"}, {"text": f"{n} 👎", "callback_data": f"v:{c.id}:-1"}]
     # Two articles per row keeps ten articles to five rows of buttons.
     return text, [buttons[i : i + 4] for i in range(0, len(buttons), 4)]

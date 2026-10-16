@@ -17,7 +17,7 @@ where url = any(%(urls)s)
 INSERT_SQL = """
 insert into hub.item (url, source, category, title, title_key, summary, published_at, embedding)
 values (%(url)s, %(source)s, %(category)s, %(title)s, %(title_key)s, %(summary)s, %(published_at)s,
-        %(embedding)s::extensions.vector)
+        %(embedding)s::extensions.halfvec)
 on conflict (url) do nothing
 """
 PURGE_SQL = "delete from hub.item where fetched_at < now() - make_interval(days => %(days)s)"

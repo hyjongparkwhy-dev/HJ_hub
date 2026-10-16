@@ -22,6 +22,11 @@ class FakeBriefStore:
         self._candidates, self._briefed, self._offset = list(candidates), briefed, offset
         self.briefs, self.messages, self.votes, self.offsets, self.committed = [], [], [], [], 0
         self.digests, self.saved_digests = dict(digests or {}), []
+        self.liked = []
+
+    def feedback_signals(self, days, limit):
+        assert (days, limit) == (90, 200)
+        return list(self.liked), []
 
     def cached_digests(self, day):
         return dict(self.digests)
@@ -113,7 +118,8 @@ def test_full_run_collects_votes_then_sends_and_records_once():
     day, ids, digests = store.briefs[0]
     assert day == date(2026, 10, 17) and len(ids) == 10
     assert sum(d.title.startswith("요약 제목") for d in digests) == 2  # the rest fall back to feed text
-    assert stats == {"votes": 1, "candidates": 12, "summarized": 2, "picked": 10, "sent": True}
+    assert stats == {"votes": 1, "candidates": 12, "liked": 0, "disliked": 0, "summarized": 2, "picked": 10, "sent": True}
+    assert "<i>주제: " in tg.sent[0][0]  # every pick says why
 
 
 def test_digests_from_an_earlier_run_today_are_reused():

@@ -8,7 +8,7 @@ from datetime import date
 
 import psycopg
 
-from hub_collect.rank import Candidate, Scored
+from hub_collect.rank import Candidate, Scored, Signal
 from hub_collect.summarize import Digest
 from hub_collect.telegram import Vote
 
@@ -22,11 +22,18 @@ from hub.item i
 where i.fetched_at > now() - make_interval(hours => %(hours)s)
   and not exists (select 1 from hub.brief_item b where b.item_id = i.id)
 """
+FEEDBACK_SQL = """
+select f.vote, i.title, i.embedding::text
+from hub.feedback f join hub.item i on i.id = f.item_id
+where f.voted_at > now() - make_interval(days => %(days)s)
+order by f.voted_at desc
+"""
+LIKED_LABEL_CHARS = 24
 BRIEFED_SQL = "select 1 from hub.brief where brief_date = %(day)s"
 BRIEF_SQL = "insert into hub.brief (brief_date, stats) values (%(day)s, %(stats)s::jsonb) returning id"
 BRIEF_ITEM_SQL = """
-insert into hub.brief_item (brief_id, rank, item_id, score, title, summary)
-values (%(brief_id)s, %(rank)s, %(item_id)s, %(score)s, %(title)s, %(summary)s)
+insert into hub.brief_item (brief_id, rank, item_id, score, title, summary, reason)
+values (%(brief_id)s, %(rank)s, %(item_id)s, %(score)s, %(title)s, %(summary)s, %(reason)s)
 """
 MESSAGE_SQL = "update hub.brief set message_id = %(message_id)s where id = %(id)s"
 # Presses on articles already purged by retention are dropped instead of failing the foreign key.
@@ -53,6 +60,17 @@ class BriefStore:
         rows = self._conn.execute(CANDIDATES_SQL, {"hours": hours}).fetchall()
         return [Candidate(r[0], r[1], r[2], r[3], r[4], r[5], r[6], json.loads(r[7])) for r in rows]
 
+    def feedback_signals(self, days: int, limit: int) -> tuple[list[Signal], list[Signal]]:
+        """Most recent votes first, at most `limit` each way."""
+        liked: list[Signal] = []
+        disliked: list[Signal] = []
+        for vote, title, vector in self._conn.execute(FEEDBACK_SQL, {"days": days}).fetchall():
+            if vote > 0 and len(liked) < limit:
+                liked.append(Signal(f"👍 비슷: {title[:LIKED_LABEL_CHARS]}", json.loads(vector)))
+            elif vote < 0 and len(disliked) < limit:
+                disliked.append(Signal("👎", json.loads(vector)))
+        return liked, disliked
+
     def briefed(self, day: date) -> bool:
         return self._conn.execute(BRIEFED_SQL, {"day": day}).fetchone() is not None
 
@@ -69,6 +87,7 @@ class BriefStore:
                         "score": s.score,
                         "title": d.title,
                         "summary": d.summary or None,
+                        "reason": s.reason or None,
                     },
                 )
         return brief_id
