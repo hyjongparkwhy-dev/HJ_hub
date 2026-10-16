@@ -62,3 +62,37 @@ def test_summary_output_has_counts_only():
     text = format_summary(stats)
     assert "Secret" not in text and "x.test" not in text
     assert '"inserted": 1' in text and '"failed": ["a"]' in text
+
+
+def test_unexpected_source_error_is_recorded_not_fatal():
+    import http.client
+
+    store = FakeStore()
+    stats = collect((A, B), fetcher({A.url: http.client.IncompleteRead(b"x"), B.url: rss("Fine")}), store, FakeEmbedder(), NOW)
+    assert stats["failed"] == ["a"]
+    assert stats["inserted"] == 1
+    assert store.runs == [stats]
+
+
+def test_exit_code_flags_total_failure_and_db_limit():
+    from hub_collect.run import exit_code
+
+    assert exit_code({"failed": ["a"], "sources": {"b": 1}}, 2) == 0
+    assert exit_code({"failed": ["a", "b"], "sources": {}}, 2) == 1
+    assert exit_code({"failed": [], "sources": {}, "skipped": "db_limit"}, 2) == 1
+
+
+def test_main_prints_only_the_error_type(monkeypatch, capsys):
+    import psycopg
+
+    from hub_collect import run
+
+    def broken_connect(url):
+        raise psycopg.OperationalError('connection to "aws-0.pooler.supabase.com" failed for user "postgres.secretref"')
+
+    monkeypatch.setattr(run, "load_database_url", lambda: "postgresql://unused")
+    monkeypatch.setattr(run, "connect", broken_connect)
+    assert run.main() == 1
+    out = capsys.readouterr()
+    assert out.out.strip() == '{"error": "OperationalError"}'
+    assert "secretref" not in out.out + out.err

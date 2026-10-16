@@ -28,8 +28,13 @@ class Item:
     published_at: datetime | None
 
 
+def _strip_controls(text: str) -> str:
+    # Postgres text rejects NUL; other control characters only add noise. Tabs and newlines become spaces later.
+    return "".join(ch for ch in text if ch in "\t\n\r" or ord(ch) >= 32)
+
+
 def canonical_url(url: str) -> str:
-    parts = urlsplit(url.strip())
+    parts = urlsplit(_strip_controls(url).strip())
     query = [
         (k, v)
         for k, v in parse_qsl(parts.query, keep_blank_values=True)
@@ -39,7 +44,7 @@ def canonical_url(url: str) -> str:
 
 
 def clean_text(raw: str, limit: int = SUMMARY_LIMIT) -> str:
-    text = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", raw or "")).split())
+    text = " ".join(_strip_controls(html.unescape(re.sub(r"<[^>]+>", " ", raw or ""))).split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from hub_collect.dedupe import unique_items
 from hub_collect.embed import Embedder, embedding_text
-from hub_collect.fetch import FetchError, fetch
+from hub_collect.fetch import fetch
 from hub_collect.normalize import parse_feed
 from hub_collect.settings import load_database_url
 from hub_collect.sources import SOURCES, Source
@@ -28,8 +28,9 @@ def collect(sources: Sequence[Source], fetch: Callable[[str], bytes], store, emb
         for source in sources:
             try:
                 parsed = parse_feed(source, fetch(source.url), now)
-            except FetchError:
+            except Exception as e:  # one broken feed must never cost the other sources their day
                 stats["failed"].append(source.id)
+                stats.setdefault("errors", {})[source.id] = type(e).__name__
                 continue
             stats["sources"][source.id] = len(parsed)
             items.extend(parsed)
@@ -48,14 +49,24 @@ def format_summary(stats: dict) -> str:
     return json.dumps(stats, ensure_ascii=False, sort_keys=True)
 
 
+def exit_code(stats: dict, source_count: int) -> int:
+    """Non-zero turns the Actions run red: every feed failed, or the database limit stopped collection."""
+    return 1 if len(stats["failed"]) == source_count or stats.get("skipped") else 0
+
+
 def main() -> int:
     url = load_database_url()
     if not url:
         print("HUB_DATABASE_URL is not set", file=sys.stderr)
         return 2
-    with connect(url) as conn:
-        stats = collect(
-            SOURCES, fetch, Store(conn), Embedder(os.environ.get("FASTEMBED_CACHE")), datetime.now(timezone.utc)
-        )
+    try:
+        with connect(url) as conn:
+            stats = collect(
+                SOURCES, fetch, Store(conn), Embedder(os.environ.get("FASTEMBED_CACHE")), datetime.now(timezone.utc)
+            )
+    except Exception as e:
+        # Database and model errors can quote hosts, user names or row contents; the public log gets the type only.
+        print(json.dumps({"error": type(e).__name__}))
+        return 1
     print(format_summary(stats))
-    return 1 if len(stats["failed"]) == len(SOURCES) else 0
+    return exit_code(stats, len(SOURCES))

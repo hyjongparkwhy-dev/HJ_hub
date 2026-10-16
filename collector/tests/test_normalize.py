@@ -43,3 +43,8 @@ def test_parse_feed_clamps_future_dates_and_keeps_missing_ones_null():
     items = {i.title: i for i in parse_feed(SOURCE, RSS, NOW)}
     assert items["Future"].published_at == NOW
     assert items["Undated"].published_at is None
+
+
+def test_nul_and_control_characters_are_removed():
+    assert clean_text("a\x00b\x07c\td") == "abc d"
+    assert canonical_url("https://example.com/a\x00b") == "https://example.com/ab"
