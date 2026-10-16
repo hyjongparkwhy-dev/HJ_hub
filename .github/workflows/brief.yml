@@ -1,6 +1,9 @@
 name: brief
 
 on:
+  schedule:
+    - cron: "0 0 * * *" # 09:00 KST briefing
+    - cron: "0 12 * * *" # 21:00 KST feedback only
   workflow_dispatch:
     inputs:
       mode:
@@ -43,7 +46,7 @@ jobs:
       # Prints counts only: this repository and its logs are public.
       - run: python -m hub_collect.brief $MODE_ARGS
         env:
-          # The evening schedule (added once the bot exists) only collects presses: Telegram keeps them 24 hours.
+          # The evening schedule only collects presses: Telegram keeps unread ones for 24 hours.
           MODE_ARGS: ${{ (github.event.schedule == '0 12 * * *' || inputs.mode == 'feedback') && '--feedback-only' || '' }}
           HUB_DATABASE_URL: ${{ secrets.HUB_DATABASE_URL }}
           HUB_TELEGRAM_TOKEN: ${{ secrets.HUB_TELEGRAM_TOKEN }}
