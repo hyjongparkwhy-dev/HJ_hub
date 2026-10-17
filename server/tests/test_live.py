@@ -63,6 +63,23 @@ async def test_live_stdio_entrypoint(settings):
     async with Client(params) as client:
         tools = (await client.list_tools()).tools
         home = await client.call_tool("apt_my_home", {})
-    assert len(tools) == 8
-    assert not home.is_error
+        brief = await client.call_tool("news_brief", {})
+    assert len(tools) == 13
+    assert not home.is_error and not brief.is_error
     assert json.loads(home.content[0].text)["is_home"] is True
+
+
+def test_live_news_tools(richrich_db, apt_db, settings):
+    from hub_mcp import news
+
+    latest = news.brief(richrich_db, None)
+    assert 1 <= len(latest["items"]) <= 10
+    found = news.search(richrich_db, None, "tech", 3, 5)["items"]
+    assert len(found) <= 5 and all(i["category"] == "tech" for i in found)
+    if found:
+        near = news.similar(richrich_db, found[0]["id"], 3)
+        assert len(near["similar"]) <= 3 and all(0 <= s["similarity"] <= 100 for s in near["similar"])
+    stocks_news = news.for_stocks(richrich_db, None, 7, 10, dict(settings.news_aliases))
+    assert all(i["stocks"] for i in stocks_news["items"])  # SQL and Python agree on every match
+    home = news.near_home(richrich_db, apt_db, settings.apt_home_key, settings.news_areas, 30, 5)
+    assert home["words"] and all(i["category"] == "realestate" for i in home["items"])

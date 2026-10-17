@@ -12,7 +12,8 @@ from tests.fakes import FakeDb
 
 TODAY = date(2026, 10, 14)
 SETTINGS = Settings(None, None, "seq:41135-001", "74")
-TOOLS = ["apt_complex", "apt_leaders", "apt_my_home", "apt_records", "apt_search", "stock_detail", "stock_news", "stock_watchlist"]
+TOOLS = ["apt_complex", "apt_leaders", "apt_my_home", "apt_records", "apt_search", "news_brief", "news_for_stocks",
+         "news_near_home", "news_search", "news_similar", "stock_detail", "stock_news", "stock_watchlist"]
 
 
 def make_server(richrich=None, apt=None):
@@ -20,7 +21,7 @@ def make_server(richrich=None, apt=None):
 
 
 @pytest.mark.anyio
-async def test_lists_eight_read_only_tools_with_descriptions():
+async def test_lists_read_only_tools_with_descriptions():
     async with Client(make_server()) as client:
         tools = (await client.list_tools()).tools
     assert sorted(t.name for t in tools) == TOOLS

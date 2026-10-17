@@ -4,7 +4,9 @@ Personal data hub. Copy `.env.example` to `.env` and fill it in (never commit `.
 
 ## server — read-only MCP server
 
-Lets Claude query personal RichRich (stocks) and apt-leader (apartments) databases.
+Lets Claude query personal RichRich (stocks) and apt-leader (apartments) databases, and the news curator in
+the `hub` schema (`news_brief`, `news_search`, `news_similar`, `news_for_stocks`, `news_near_home`).
+`HUB_NEWS_ALIASES` and `HUB_NEWS_AREAS` in `.env` hold headline names for watchlist stocks and neighbourhood words.
 
 - Tests: `cd server && ./.venv/Scripts/python.exe -m pytest -q`
 

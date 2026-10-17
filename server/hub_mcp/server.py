@@ -9,7 +9,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from hub_mcp import apts, stocks
+from hub_mcp import apts, news, stocks
 from hub_mcp.db import Db, QueryError, Reader
 from hub_mcp.settings import Settings, load_settings
 
@@ -19,11 +19,15 @@ READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 Market = Literal["KR", "US"]
 Band = Literal["59", "74", "84", "large"]
 Mode = Literal["auto", "59", "74", "84", "large"]
+Category = Literal["invest", "realestate", "tech"]
 
 INSTRUCTIONS = (
     "Personal data of the owner. "
     "stock_* tools read RichRich: the owner's watchlist, holdings, rule-based opinions, news and DART filings. "
     "apt_* tools read apt-leader: 수도권 apartment trades, per-district 대장 아파트 rankings and 내 집 (apt_my_home). "
+    "news_* tools read the owner's news curator: articles from 27 outlets (last 90 days), the daily 09:00 briefing "
+    "and the owner's 👍/👎 votes. stock_news is RichRich's own per-stock feed with DART filings; news_for_stocks "
+    "searches the wider curator pool by stock name. "
     "Every result carries `notes` explaining units; prices of apartments are in 만원. "
     "Opinions are mechanical scores, not advice: report them, do not turn them into buy/sell recommendations. "
     "Answer the owner in Korean."
@@ -94,6 +98,37 @@ def build_server(
         """Recent record-high trades (신고가: above every earlier trade of the same complex and size, floors 4+)
         by contract date, newest first, optionally for one district. `days` max 92, `limit` max 50."""
         return _answer(lambda: apts.records(apt, days, district, limit, today()))
+
+    @server.tool(annotations=READ_ONLY)
+    def news_brief(date: datetime.date | None = None) -> dict:
+        """The owner's morning briefing for `date` (YYYY-MM-DD; default the latest): 10 articles in rank order with
+        relevance (0-100), the reason it was picked, the Korean summary, the owner's vote and the link."""
+        return _answer(lambda: news.brief(richrich, date))
+
+    @server.tool(annotations=READ_ONLY)
+    def news_search(query: str | None = None, category: Category | None = None, days: int = 7, limit: int = 20) -> dict:
+        """Search collected news titles (every word must appear), newest first, optionally within a category
+        (invest/realestate/tech). Without `query`, the latest articles. `days` max 90, `limit` max 50."""
+        return _answer(lambda: news.search(richrich, query, category, days, limit))
+
+    @server.tool(annotations=READ_ONLY)
+    def news_similar(item_id: int, limit: int = 10) -> dict:
+        """Articles closest in meaning to one article (id from any news_* result), with similarity 0-100.
+        Use it to follow a story across outlets. `limit` max 20."""
+        return _answer(lambda: news.similar(richrich, item_id, limit))
+
+    @server.tool(annotations=READ_ONLY)
+    def news_for_stocks(query: str | None = None, days: int = 3, limit: int = 30) -> dict:
+        """Collected news whose title names a stock on the owner's RichRich watchlist (or the one stock in `query`),
+        each tagged with the stocks it mentions and whether the owner holds them. `days` max 30, `limit` max 50."""
+        aliases = dict(settings.news_aliases)
+        return _answer(lambda: news.for_stocks(richrich, query, days, limit, aliases))
+
+    @server.tool(annotations=READ_ONLY)
+    def news_near_home(days: int = 7, limit: int = 20) -> dict:
+        """Real-estate news that mentions the owner's neighbourhood (the 내 집 district plus configured words such as
+        광교) in its title or summary, newest first. `days` max 90, `limit` max 50."""
+        return _answer(lambda: news.near_home(richrich, apt, settings.apt_home_key, settings.news_areas, days, limit))
 
     return server
 
