@@ -1,4 +1,4 @@
-"""One Gemini call per briefing: Korean titles and short summaries for the picked items.
+"""One Gemini call per briefing: short Korean summaries for the picked items. Titles stay as published.
 
 Plain REST over urllib keeps the collector free of an SDK. The key travels in a header, never in the URL."""
 from __future__ import annotations
@@ -23,9 +23,8 @@ TITLE_LIMIT = 80
 SUMMARY_LIMIT = 160
 
 PROMPT = (
-    "아래는 아침 뉴스 브리핑에 넣을 기사 목록이다. 각 항목마다 한국어로 써라.\n"
-    "- title: 기사 제목. 영어면 자연스러운 한국어로 옮기고, 한국어면 그대로 두되 50자 안팎으로 다듬는다.\n"
-    "- summary: 핵심을 1~2문장(120자 안팎)으로. 설명(description)이 비어 있으면 제목만 보고 1문장.\n"
+    "아래는 아침 뉴스 브리핑에 넣을 기사 목록이다. 각 항목마다 한국어 summary를 써라.\n"
+    "- summary: 핵심을 1~2문장(120자 안팎)으로. 영어 기사도 한국어로. 설명(description)이 비어 있으면 제목만 보고 1문장.\n"
     "기사에 없는 수치나 사실을 만들지 마라. 매수·매도를 권하는 표현은 쓰지 마라. 입력의 id를 그대로 돌려줘라.\n\n"
 )
 
@@ -33,8 +32,8 @@ SCHEMA = {
     "type": "ARRAY",
     "items": {
         "type": "OBJECT",
-        "properties": {"id": {"type": "INTEGER"}, "title": {"type": "STRING"}, "summary": {"type": "STRING"}},
-        "required": ["id", "title", "summary"],
+        "properties": {"id": {"type": "INTEGER"}, "summary": {"type": "STRING"}},
+        "required": ["id", "summary"],
     },
 }
 
@@ -51,8 +50,13 @@ class Digest:
     summary: str
 
 
+def headline(c: Candidate) -> str:
+    # The owner reads English headlines as they are, so titles are never rewritten.
+    return clean_text(c.title, TITLE_LIMIT)
+
+
 def fallback(c: Candidate) -> Digest:
-    return Digest(c.title, clean_text(c.summary, SUMMARY_LIMIT))
+    return Digest(headline(c), clean_text(c.summary, SUMMARY_LIMIT))
 
 
 def _urllib_post(url: str, headers: dict, body: bytes) -> bytes:
@@ -75,7 +79,7 @@ class GeminiSummarizer:
         # Only the public headline and feed description go out; links and ids stay local.
         payload = [{"id": n, "title": c.title, "description": c.summary[:600]} for n, c in enumerate(items)]
         rows = self._call(PROMPT + json.dumps(payload, ensure_ascii=False))
-        return {items[n].id: digest for n, digest in _valid(rows, len(items)).items()}
+        return {items[n].id: Digest(headline(items[n]), summary) for n, summary in _valid(rows, len(items)).items()}
 
     def _call(self, prompt: str) -> list:
         body = json.dumps(
@@ -115,14 +119,13 @@ class GeminiSummarizer:
         raise SummaryError(f"Gemini failed after {tries} attempts ({problem})")
 
 
-def _valid(rows: list, size: int) -> dict[int, Digest]:
-    valid: dict[int, Digest] = {}
+def _valid(rows: list, size: int) -> dict[int, str]:
+    valid: dict[int, str] = {}
     for row in rows:
         if not isinstance(row, dict) or not isinstance(row.get("id"), int):
             continue
         n = row["id"]
-        title = clean_text(str(row.get("title") or ""), TITLE_LIMIT)
         summary = clean_text(str(row.get("summary") or ""), SUMMARY_LIMIT)
-        if 0 <= n < size and n not in valid and title and summary:
-            valid[n] = Digest(title, summary)
+        if 0 <= n < size and n not in valid and summary:
+            valid[n] = summary
     return valid

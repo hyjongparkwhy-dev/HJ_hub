@@ -32,7 +32,7 @@ class FakePost:
 def test_one_call_maps_rows_back_to_items_and_keeps_the_key_out_of_the_url():
     post = FakePost(gemini_reply([{"id": 0, "title": "연준 금리 동결", "summary": "연준이 금리를 유지했다."}]))
     out = GeminiSummarizer("k-secret", post=post, retry_wait=0).digests([cand(41)])
-    assert out == {41: Digest("연준 금리 동결", "연준이 금리를 유지했다.")}
+    assert out == {41: Digest("Fed holds rates", "연준이 금리를 유지했다.")}  # the headline is never translated
     url, headers, body = post.calls[0]
     assert "k-secret" not in url and headers["x-goog-api-key"] == "k-secret"
     assert "gemini-3.5-flash" in url
@@ -40,9 +40,9 @@ def test_one_call_maps_rows_back_to_items_and_keeps_the_key_out_of_the_url():
 
 
 def test_bad_rows_are_dropped():
-    rows = [{"id": 0, "title": "", "summary": "x"}, {"id": 5, "title": "a", "summary": "b"}, {"id": 1, "title": "b", "summary": "c"}, "junk"]
+    rows = [{"id": 0, "summary": ""}, {"id": 5, "summary": "b"}, {"id": 1, "summary": "c"}, "junk"]
     out = GeminiSummarizer("k", post=FakePost(gemini_reply(rows)), retry_wait=0).digests([cand(1), cand(2)])
-    assert out == {2: Digest("b", "c")}
+    assert out == {2: Digest("Fed holds rates", "c")}
 
 
 def test_malformed_answers_are_retried_only_once():
@@ -71,10 +71,10 @@ def test_http_status_is_reported_and_thought_parts_are_skipped():
     busy = urllib.error.HTTPError("https://g.test", 503, "Unavailable", {}, None)
     with pytest.raises(SummaryError, match="HTTP 503"):
         GeminiSummarizer("k", post=FakePost(busy, busy, busy), retry_wait=0).digests([cand(1)])
-    rows = [{"id": 0, "title": "제목", "summary": "요약"}]
+    rows = [{"id": 0, "summary": "요약"}]
     reply = {"candidates": [{"content": {"parts": [{"text": "thinking", "thought": True}, {"text": json.dumps(rows)}]}}]}
     out = GeminiSummarizer("k", post=FakePost(json.dumps(reply).encode()), retry_wait=0).digests([cand(1)])
-    assert out == {1: Digest("제목", "요약")}
+    assert out == {1: Digest("Fed holds rates", "요약")}
 
 
 def test_empty_input_makes_no_call():
