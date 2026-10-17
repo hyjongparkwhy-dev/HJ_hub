@@ -107,3 +107,19 @@ def test_live_purge_keeps_voted_items(conn):
         Store(conn).purge(90)
         left = {r[0] for r in conn.execute("select url from hub.item where url like 'https://hub-test.invalid/old-%'")}
         assert left == {old[0].url}
+
+
+def test_live_telegram_votes_do_not_overwrite_web_votes(conn):
+    from hub_collect.brief_store import BriefStore
+    from hub_collect.telegram import Vote
+
+    items = [Item("test", "tech", f"https://hub-test.invalid/src-{n}", f"Src {n}", f"srctrip{n}", "", None) for n in (1, 2)]
+    with conn.transaction(force_rollback=True):
+        Store(conn).insert(items, [[0.1] * DIM] * 2)
+        web_id, tg_id = (conn.execute("select id from hub.item where url = %s", (i.url,)).fetchone()[0] for i in items)
+        conn.execute("insert into hub.feedback (item_id, vote, source) values (%s, -1, 'web')", (web_id,))
+        store = BriefStore(conn)
+        store.save_votes([Vote(tg_id, 1)])
+        store.save_votes([Vote(web_id, 1), Vote(tg_id, -1)])
+        votes = dict(conn.execute("select item_id, vote from hub.feedback where item_id = any(%s)", ([web_id, tg_id],)).fetchall())
+        assert votes == {web_id: -1, tg_id: -1}

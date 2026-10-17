@@ -1,4 +1,4 @@
-// Same passcode gate as kid-meal: an HMAC of the passcode is the session cookie.
+// Passcode gate adapted from kid-meal; the session cookie is a signed issue time.
 export const SESSION_COOKIE = "hub_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 180;
 
@@ -17,14 +17,26 @@ function equalHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// The token is derived from the passcode, so changing HUB_PASSCODE signs every device out.
-export function sessionToken(passcode: string, secret: string): Promise<string> {
-  return hmacHex(secret, `session:${passcode}`);
+// "<issued seconds>.<signature>": the signature covers the passcode and the issue time, so a copied cookie stops
+// working after SESSION_MAX_AGE even if the browser keeps it, and changing HUB_PASSCODE signs every device out.
+function signature(passcode: string, secret: string, issued: number): Promise<string> {
+  return hmacHex(secret, `session:${passcode}:${issued}`);
 }
 
-export async function verifySession(token: string | undefined, passcode: string, secret: string): Promise<boolean> {
-  if (!token) return false;
-  return equalHex(token, await sessionToken(passcode, secret));
+export async function sessionToken(passcode: string, secret: string, now = Date.now()): Promise<string> {
+  const issued = Math.floor(now / 1000);
+  return `${issued}.${await signature(passcode, secret, issued)}`;
+}
+
+const CLOCK_SKEW_SECONDS = 60;
+
+export async function verifySession(token: string | undefined, passcode: string, secret: string, now = Date.now()): Promise<boolean> {
+  const match = token?.match(/^(\d{1,12})\.([0-9a-f]{64})$/);
+  if (!match) return false;
+  const issued = Number(match[1]);
+  const age = Math.floor(now / 1000) - issued;
+  if (age > SESSION_MAX_AGE || age < -CLOCK_SKEW_SECONDS) return false;
+  return equalHex(match[2], await signature(passcode, secret, issued));
 }
 
 // Compare digests, not raw strings, so timing does not reveal the passcode length or prefix.

@@ -11,6 +11,19 @@ describe("passcode gate", () => {
     expect(await verifySession(token, "changed", "s")).toBe(false);
     expect(await verifySession(undefined, "morning", "s")).toBe(false);
   });
+
+  it("expires sessions and rejects altered issue times", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const issued = Date.UTC(2026, 9, 17);
+    const token = await sessionToken("morning", "s", issued);
+    expect(await verifySession(token, "morning", "s", issued + 179 * day)).toBe(true);
+    expect(await verifySession(token, "morning", "s", issued + 181 * day)).toBe(false);
+    expect(await verifySession(token, "morning", "s", issued - day)).toBe(false);
+    const [time, sig] = token.split(".");
+    expect(await verifySession(`${Number(time) + 86400}.${sig}`, "morning", "s", issued + day)).toBe(false);
+    // Cookies from before issue times were signed no longer count.
+    expect(await verifySession(sig, "morning", "s", issued)).toBe(false);
+  });
 });
 
 describe("safeNext", () => {

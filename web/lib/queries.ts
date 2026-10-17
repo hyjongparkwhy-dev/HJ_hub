@@ -129,6 +129,6 @@ export async function feedbackTrend(): Promise<FeedbackTrend> {
 export async function saveVote(itemId: number, vote: 1 | -1): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into hub.feedback (item_id, vote) values (${itemId}, ${vote})
-    on conflict (item_id) do update set vote = excluded.vote, voted_at = now()`;
+    insert into hub.feedback (item_id, vote, source) values (${itemId}, ${vote}, 'web')
+    on conflict (item_id) do update set vote = excluded.vote, voted_at = now(), source = 'web'`;
 }

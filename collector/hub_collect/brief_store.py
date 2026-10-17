@@ -39,10 +39,12 @@ values (%(brief_id)s, %(rank)s, %(item_id)s, %(score)s, %(title)s, %(summary)s, 
 """
 MESSAGE_SQL = "update hub.brief set message_id = %(message_id)s where id = %(id)s"
 # Presses on articles already purged by retention are dropped instead of failing the foreign key.
+# A vote made on the web wins: Telegram presses carry no time, so they only replace earlier Telegram votes.
 VOTE_SQL = """
-insert into hub.feedback (item_id, vote)
-select %(item_id)s, %(vote)s where exists (select 1 from hub.item where id = %(item_id)s)
+insert into hub.feedback (item_id, vote, source)
+select %(item_id)s, %(vote)s, 'telegram' where exists (select 1 from hub.item where id = %(item_id)s)
 on conflict (item_id) do update set vote = excluded.vote, voted_at = now()
+where hub.feedback.source = 'telegram'
 """
 GET_STATE_SQL = "select value from hub.state where key = %(key)s"
 SET_STATE_SQL = """
