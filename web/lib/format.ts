@@ -13,7 +13,7 @@ export const SOURCE_LABEL: Record<string, string> = {
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
-/** "2026-10-17" → "10월 17일 금요일". The date is a calendar day in KST, so it is read without a timezone shift. */
+/** "2026-10-17" → "10월 17일 토요일". The date is a calendar day in KST, so it is read without a timezone shift. */
 export function dateLabel(isoDay: string): string {
   const [y, m, d] = isoDay.split("-").map(Number);
   const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];

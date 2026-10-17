@@ -11,6 +11,8 @@ export async function proxy(request: NextRequest) {
     requireEnv("AUTH_SECRET"),
   );
   if (ok) return NextResponse.next();
+  // A redirect would hand a server action an HTML page; a plain 401 lets the caller say "signed out".
+  if (request.method !== "GET" && request.method !== "HEAD") return new NextResponse(null, { status: 401 });
   const login = new URL("/login", request.url);
   login.searchParams.set("next", `${path}${request.nextUrl.search}`);
   return NextResponse.redirect(login);

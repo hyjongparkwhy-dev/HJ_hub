@@ -21,6 +21,8 @@ select i.id, i.source, i.category, i.url, i.title, coalesce(i.summary, ''),
 from hub.item i
 where i.fetched_at > now() - make_interval(hours => %(hours)s)
   and not exists (select 1 from hub.brief_item b where b.item_id = i.id)
+  -- voted from the web before it was briefed: already seen, and it would match its own vote
+  and not exists (select 1 from hub.feedback f where f.item_id = i.id)
 """
 FEEDBACK_SQL = """
 select f.vote, i.title, i.embedding::text

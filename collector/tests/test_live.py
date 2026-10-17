@@ -79,3 +79,16 @@ def test_live_digest_cache_is_per_day_and_rolled_back(conn):
         store.save_digests(date(1999, 1, 1), {7: Digest("t", "s")})
         assert store.cached_digests(date(1999, 1, 1)) == {7: Digest("t", "s")}
         assert store.cached_digests(date(1999, 1, 2)) == {}
+
+
+def test_live_voted_items_are_not_candidates(conn):
+    from hub_collect.brief_store import BriefStore
+    from hub_collect.telegram import Vote
+
+    item = Item("test", "tech", "https://hub-test.invalid/voted", "Voted", "votedtrip", "", None)
+    with conn.transaction(force_rollback=True):
+        Store(conn).insert([item], [[0.1] * DIM])
+        store = BriefStore(conn)
+        cand = next(c for c in store.candidates(1) if c.url == item.url)
+        store.save_votes([Vote(cand.id, 1)])
+        assert all(c.id != cand.id for c in store.candidates(1))

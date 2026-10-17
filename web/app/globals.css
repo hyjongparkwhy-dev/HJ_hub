@@ -138,3 +138,4 @@ ol { list-style: none; }
 .login-form input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--rule-strong); border-radius: 0; background: transparent; }
 .login-error { color: var(--accent); font-size: 14px; }
 .login-title { font-family: var(--font-display), serif; font-weight: 600; font-size: 20px; }
+.vote-problem { font-size: 13px; color: var(--accent); align-self: center; margin-left: 4px; }
