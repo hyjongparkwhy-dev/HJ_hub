@@ -18,7 +18,7 @@ class Settings:
     apt_home_band: str | None
     # Who the data belongs to (e.g. where they live); kept in .env so the repository holds no personal details.
     owner_context: str | None = None
-    # Headline names for watchlist stocks ("GOOG:구글,알파벳;META:메타") and words for the owner's neighbourhood.
+    # Headline names for watchlist stocks ("TSLA:테슬라;005380:현대자동차") and words for the owner's neighbourhood.
     news_aliases: tuple[tuple[str, tuple[str, ...]], ...] = ()
     news_areas: tuple[str, ...] = ()
 

@@ -127,7 +127,7 @@ def build_server(
     @server.tool(annotations=READ_ONLY)
     def news_near_home(days: int = 7, limit: int = 20) -> dict:
         """Real-estate news that mentions the owner's neighbourhood (the 내 집 district plus configured words such as
-        광교) in its title or summary, newest first. `days` max 90, `limit` max 50."""
+        a neighbourhood name) in its title or summary, newest first. `days` max 90, `limit` max 50."""
         return _answer(lambda: news.near_home(richrich, apt, settings.apt_home_key, settings.news_areas, days, limit))
 
     return server

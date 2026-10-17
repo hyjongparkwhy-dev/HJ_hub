@@ -14,7 +14,7 @@ VOTE_NOTE = "vote는 주인이 누른 👍(1)/👎(-1), 없으면 null입니다.
 POOL_NOTE = "기사 풀은 언론사 27곳 RSS를 4시간마다 모은 것으로 최근 90일치만 남아 있습니다. summary는 RSS 설명이며 비어 있을 수 있습니다."
 MATCH_NOTE = (
     "제목에 종목 이름·별칭이 나온 기사만 고릅니다(뜻으로 찾지 않음). 미국 종목은 my-hub/.env의 HUB_NEWS_ALIASES에 "
-    "한국어 별칭(예: GOOG:구글)이 있어야 한국어 기사를 찾습니다."
+    "한국어 별칭(예: TSLA:테슬라)이 있어야 한국어 기사를 찾습니다."
 )
 
 ITEM_COLUMNS = """
@@ -85,7 +85,7 @@ HOME_DISTRICT_SQL = """
 select s.name from apt.complex c join apt.sgg s on s.code = c.sgg_code where c.key = %(key)s
 """
 
-# Corporate tails that never appear in headlines: "Meta Platforms, Inc." is "Meta", "Amazon.com, Inc." is "Amazon".
+# Corporate tails that never appear in headlines: "Tesla, Inc." is "Tesla", "Overstock.com, Inc." is "Overstock".
 _NAME_TAIL = re.compile(
     r"(\s+-\s+.*$)|(\.com\b)|([,\s]+(inc|corp|corporation|co|ltd|plc|holdings|group|platforms|company)\.?)+$", re.I
 )
@@ -101,8 +101,8 @@ def headline_name(name: str) -> str:
 
 
 def term_pattern(term: str) -> str:
-    """A pattern Postgres (~*) and Python (re.I) read the same way. Latin words must stand alone, so "Meta" skips
-    "metadata"; Korean names match inside words because particles attach to them ("삼성전자가")."""
+    """A pattern Postgres (~*) and Python (re.I) read the same way. Latin words must stand alone, so "Arm" skips
+    "alarm"; Korean names match inside words because particles attach to them ("현대차가")."""
     literal = _REGEX_SPECIAL.sub(r"\\\1", term)
     if _LATIN.search(term):
         return f"(?<![A-Za-z0-9]){literal}(?![A-Za-z0-9])"
@@ -112,17 +112,22 @@ def term_pattern(term: str) -> str:
 def stock_terms(stock: Mapping[str, Any], aliases: Mapping[str, Sequence[str]]) -> list[str]:
     symbol = stock["symbol"].upper()
     if stock["is_etf"]:
-        terms = [symbol]  # fund names ("iShares PHLX SOX ...") never appear in headlines
+        terms = [symbol]  # fund names never appear in headlines
     else:
         terms = [headline_name(stock["name"])]
         if stock["market"] == "US":
             terms.append(symbol)
     terms.extend(aliases.get(symbol, ()))
-    return list(dict.fromkeys(t for t in terms if len(t) >= 2))
+    # Matching ignores case, so "Arm" and the ticker "ARM" are one term.
+    unique: dict[str, str] = {}
+    for t in terms:
+        if len(t) >= 2:
+            unique.setdefault(t.casefold(), t)
+    return list(unique.values())
 
 
 def area_words(district: str | None, extra: Sequence[str]) -> list[str]:
-    """'수원시 영통구' adds '영통'; articles name the neighbourhood, not the administrative district."""
+    """'성남시 분당구' adds '분당'; articles name the neighbourhood, not the administrative district."""
     words = list(extra)
     if district:
         last = district.split()[-1]
@@ -201,7 +206,7 @@ def near_home(
             district = None  # the configured words still work without apt-leader
     words = area_words(district, extra)
     if not words:
-        raise QueryError("동네 단어가 없습니다. my-hub/.env에 HUB_NEWS_AREAS(예: 광교,영통)를 넣어 주세요.")
+        raise QueryError("동네 단어가 없습니다. my-hub/.env에 HUB_NEWS_AREAS(예: 판교,분당)를 넣어 주세요.")
     params = {
         "days": clamp(days, 1, 90),
         "limit": clamp(limit, 1, 50),

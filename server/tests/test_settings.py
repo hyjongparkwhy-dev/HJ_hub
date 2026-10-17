@@ -42,8 +42,8 @@ def test_owner_context_comes_from_env(tmp_path):
 
 def test_news_aliases_and_areas(tmp_path):
     f = tmp_path / ".env"
-    f.write_text("HUB_NEWS_ALIASES=goog:구글, 알파벳; META:메타;broken;X:\nHUB_NEWS_AREAS= 광교, 영통 ,,\n", encoding="utf-8")
+    f.write_text("HUB_NEWS_ALIASES=tsla:테슬라, 일론; ARM:암;broken;X:\nHUB_NEWS_AREAS= 판교, 분당 ,,\n", encoding="utf-8")
     s = load_settings({}, f)
-    assert s.news_aliases == (("GOOG", ("구글", "알파벳")), ("META", ("메타",)))
-    assert s.news_areas == ("광교", "영통")
+    assert s.news_aliases == (("TSLA", ("테슬라", "일론")), ("ARM", ("암",)))
+    assert s.news_areas == ("판교", "분당")
     assert load_settings({}, tmp_path / "none.env").news_aliases == ()
