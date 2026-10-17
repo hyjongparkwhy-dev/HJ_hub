@@ -62,3 +62,34 @@ export function upRate(up: number, votes: number): number | null {
 export function percent(rate: number | null): string {
   return rate === null ? "–" : `${Math.round(rate * 100)}%`;
 }
+
+export interface ReasonLine {
+  label: string;
+  text: string;
+}
+
+/** The collector's "주제: 반도체 · 👍 비슷: <title>" as labelled lines a reader can scan. */
+export function reasonLines(reason: string | null): ReasonLine[] {
+  return (reason ?? "")
+    .split(" · ")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      if (part.startsWith("주제:")) return { label: "관심 주제", text: part.slice(3).trim() };
+      const liked = part.match(/^👍 비슷:\s*(.*)$/u);
+      if (liked) return { label: "좋아한 기사와 비슷", text: liked[1] };
+      return { label: "", text: part };
+    });
+}
+
+/** Relevance or similarity (0–1) as a 0–100 number. */
+export function points(value: number): number {
+  return Math.round(value * 100);
+}
+
+/** Groups keep the order in which their first article appears, so the best-ranked topic leads. */
+export function groupByCategory<T extends { category: string }>(articles: T[]): { category: string; articles: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const a of articles) groups.set(a.category, [...(groups.get(a.category) ?? []), a]);
+  return [...groups].map(([category, list]) => ({ category, articles: list }));
+}

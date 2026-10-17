@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { similarArticles } from "@/lib/queries";
-import { ArticleRow } from "../../article";
+import { ArticleRow, LeadArticle } from "../../article";
 
 export default async function SimilarPage({ params }: PageProps<"/similar/[id]">) {
   await connection();
@@ -11,20 +11,23 @@ export default async function SimilarPage({ params }: PageProps<"/similar/[id]">
   if (!base) notFound();
   return (
     <main>
-      <section className="edition">
-        <h2>이 기사와</h2>
-        <ol className="plain">
-          <ArticleRow a={base} />
-        </ol>
-      </section>
-      <section className="edition">
-        <h2>뜻이 비슷한 기사</h2>
-        <ol className="plain">
+      <header className="page-head">
+        <h1>
+          <small>이 기사와</small>
+          비슷한 기사
+        </h1>
+      </header>
+      <LeadArticle a={base} />
+      <section className="group">
+        <h3>
+          내용이 가까운 순
+          <span>100이면 같은 이야기</span>
+        </h3>
+        <ol className="panel">
           {similar.map((a) => (
-            <ArticleRow key={a.id} a={a} marker={`${Math.round(a.similarity * 100)}`} />
+            <ArticleRow key={a.id} a={a} withCategory meter={{ value: a.similarity, max: 1, label: "비슷한 정도" }} />
           ))}
         </ol>
-        <p className="muted">숫자는 내용이 비슷한 정도(100에 가까울수록 같은 이야기)입니다.</p>
       </section>
     </main>
   );

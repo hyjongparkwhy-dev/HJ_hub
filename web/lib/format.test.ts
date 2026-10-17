@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateLabel, percent, searchPatterns, upRate } from "./format";
+import { dateLabel, groupByCategory, percent, points, reasonLines, searchPatterns, upRate } from "./format";
 
 describe("dateLabel", () => {
   it("names the KST calendar day and weekday", () => {
@@ -26,5 +26,27 @@ describe("upRate", () => {
     expect(upRate(3, 4)).toBe(0.75);
     expect(percent(0.756)).toBe("76%");
     expect(percent(null)).toBe("–");
+  });
+});
+
+describe("reasonLines", () => {
+  it("labels topics and vote matches", () => {
+    expect(reasonLines("주제: 반도체 · 👍 비슷: 코스피 반등")).toEqual([
+      { label: "관심 주제", text: "반도체" },
+      { label: "좋아한 기사와 비슷", text: "코스피 반등" },
+    ]);
+    expect(reasonLines(null)).toEqual([]);
+    expect(reasonLines("새 출처")).toEqual([{ label: "", text: "새 출처" }]);
+  });
+});
+
+describe("groupByCategory", () => {
+  it("orders groups by their first article", () => {
+    const rows = [{ category: "realestate", n: 1 }, { category: "invest", n: 2 }, { category: "realestate", n: 3 }];
+    expect(groupByCategory(rows).map((g) => [g.category, g.articles.map((a) => a.n)])).toEqual([
+      ["realestate", [1, 3]],
+      ["invest", [2]],
+    ]);
+    expect(points(0.536)).toBe(54);
   });
 });
