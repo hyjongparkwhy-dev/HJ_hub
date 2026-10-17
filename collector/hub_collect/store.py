@@ -20,7 +20,12 @@ values (%(url)s, %(source)s, %(category)s, %(title)s, %(title_key)s, %(summary)s
         %(embedding)s::extensions.halfvec)
 on conflict (url) do nothing
 """
-PURGE_SQL = "delete from hub.item where fetched_at < now() - make_interval(days => %(days)s)"
+# Voted items stay: deleting one would cascade to its vote and change what the briefing learns from.
+PURGE_SQL = """
+delete from hub.item i
+where i.fetched_at < now() - make_interval(days => %(days)s)
+  and not exists (select 1 from hub.feedback f where f.item_id = i.id)
+"""
 RUN_SQL = "insert into hub.run (stats) values (%(stats)s::jsonb)"
 
 

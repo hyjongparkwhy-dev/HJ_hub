@@ -16,7 +16,9 @@ from hub_collect.sources import SOURCES, Source
 from hub_collect.store import Store, connect
 
 DB_LIMIT_MB = 400
-RETENTION_DAYS = 180
+# Ranking reads only the last 48 hours plus voted items, and voted items are kept (store.PURGE_SQL),
+# so 90 days loses nothing for recommendations; it bounds search history and the free 500MB database.
+RETENTION_DAYS = 90
 
 
 def collect(sources: Sequence[Source], fetch: Callable[[str], bytes], store, embedder, now: datetime) -> dict:

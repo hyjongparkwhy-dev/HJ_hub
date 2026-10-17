@@ -16,10 +16,10 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       </form>
       {query ? (
         <p className="muted result-count">
-          “{query}” {results.length}건{results.length === 50 ? " (최근 50건까지)" : ""} · 최근 180일 수집분
+          “{query}” {results.length}건{results.length === 50 ? " (최근 50건까지)" : ""} · 최근 90일 수집분
         </p>
       ) : (
-        <p className="muted result-count">최근 180일 동안 모은 기사 제목에서 찾습니다. 뜻이 비슷한 기사는 각 기사의 “비슷한 기사”로 보세요.</p>
+        <p className="muted result-count">최근 90일 동안 모은 기사 제목에서 찾습니다. 뜻이 비슷한 기사는 각 기사의 “비슷한 기사”로 보세요.</p>
       )}
       <ol className="plain">
         {results.map((a) => (

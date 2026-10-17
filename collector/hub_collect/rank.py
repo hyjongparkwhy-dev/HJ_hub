@@ -98,7 +98,7 @@ def score_all(
 
 
 def pick(
-    scored: Sequence[Scored], size: int = 10, per_source: int = 3, per_category: int = 2, duplicate: float = SAME_STORY
+    scored: Sequence[Scored], size: int = 10, per_source: int = 2, per_category: int = 2, duplicate: float = SAME_STORY
 ) -> list[Scored]:
     """Greedy top `size` from score order. Each category first gets up to `per_category` slots so one busy
     field cannot fill the whole briefing; one story covered by several outlets counts once."""

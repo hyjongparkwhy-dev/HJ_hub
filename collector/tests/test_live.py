@@ -92,3 +92,18 @@ def test_live_voted_items_are_not_candidates(conn):
         cand = next(c for c in store.candidates(1) if c.url == item.url)
         store.save_votes([Vote(cand.id, 1)])
         assert all(c.id != cand.id for c in store.candidates(1))
+
+
+def test_live_purge_keeps_voted_items(conn):
+    from hub_collect.brief_store import BriefStore
+    from hub_collect.telegram import Vote
+
+    old = [Item("test", "tech", f"https://hub-test.invalid/old-{n}", f"Old {n}", f"oldtrip{n}", "", None) for n in (1, 2)]
+    with conn.transaction(force_rollback=True):
+        Store(conn).insert(old, [[0.1] * DIM] * 2)
+        conn.execute("update hub.item set fetched_at = now() - interval '100 days' where url like 'https://hub-test.invalid/old-%'")
+        voted_id = conn.execute("select id from hub.item where url = %s", (old[0].url,)).fetchone()[0]
+        BriefStore(conn).save_votes([Vote(voted_id, 1)])
+        Store(conn).purge(90)
+        left = {r[0] for r in conn.execute("select url from hub.item where url like 'https://hub-test.invalid/old-%'")}
+        assert left == {old[0].url}

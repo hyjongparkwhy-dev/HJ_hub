@@ -31,7 +31,7 @@ def test_one_failing_source_does_not_stop_others():
     assert stats["failed"] == ["a"]
     assert stats["sources"] == {"b": 1}
     assert stats["inserted"] == 1
-    assert store.purged_days == [180]
+    assert store.purged_days == [90]
     assert store.runs == [stats]
 
 
@@ -53,7 +53,7 @@ def test_database_over_limit_only_purges():
     stats = collect((A,), fetcher({A.url: rss("Anything")}), store, emb, NOW)
     assert stats["skipped"] == "db_limit"
     assert store.inserted == [] and emb.calls == []
-    assert store.purged_days == [180]
+    assert store.purged_days == [90]
 
 
 def test_summary_output_has_counts_only():

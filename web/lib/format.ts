@@ -3,12 +3,35 @@ export const CATEGORY_LABEL: Record<string, string> = { invest: "투자", reales
 // Mirrors collector/hub_collect/sources.py.
 export const SOURCE_LABEL: Record<string, string> = {
   hankyung_economy: "한국경제",
-  hankyung_realestate: "한국경제 부동산",
+  hankyung_finance: "한국경제 증권",
   yna_economy: "연합뉴스",
+  yna_market: "연합뉴스 마켓",
+  chosunbiz_stock: "조선비즈",
+  bloomberg_markets: "Bloomberg",
+  bloomberg_economics: "Bloomberg",
+  cnbc_top: "CNBC",
+  wsj_markets: "WSJ",
+  ft_markets: "Financial Times",
+  hankyung_realestate: "한국경제 부동산",
+  heraldcorp_realestate: "헤럴드경제",
+  sedaily_realestate: "서울경제",
+  mk_realestate: "매일경제",
+  asiae_realestate: "아시아경제",
+  chosunbiz_realestate: "조선비즈",
+  etnews: "전자신문",
+  zdnet_kr: "ZDNet Korea",
+  hankyung_it: "한국경제 IT",
+  theverge: "The Verge",
+  techcrunch: "TechCrunch",
+  arstechnica: "Ars Technica",
+  wired: "WIRED",
+  mit_techreview: "MIT Technology Review",
+  bloomberg_tech: "Bloomberg",
+  cnbc_tech: "CNBC",
+  engadget: "Engadget",
+  // Removed 2026-10-17 (not news outlets); kept so older briefings still show a name.
   geeknews: "GeekNews",
   hackernews: "Hacker News",
-  bloomberg_markets: "Bloomberg",
-  cnbc_top: "CNBC",
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
