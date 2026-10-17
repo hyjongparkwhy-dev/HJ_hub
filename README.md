@@ -29,3 +29,13 @@ buttons. Presses are read back with `getUpdates` at 09:00 and 21:00 KST and stor
 - Preview locally without sending or writing: `cd collector && ./.venv/Scripts/python.exe -m hub_collect.brief --dry-run` (add `--summarize` to spend one Gemini call)
 - Buttons show a loading spinner and no confirmation: presses are read later, not answered live
 - Actions secrets: `HUB_DATABASE_URL`, `HUB_TELEGRAM_TOKEN`, `HUB_TELEGRAM_CHAT_ID`, `GEMINI_API_KEY`
+
+## web — briefings, search and similar items (Vercel)
+
+Next.js app in `web/` behind a passcode. Lists the last 14 days of briefings with reasons and 👍/👎 buttons,
+searches titles, and shows the nearest items by embedding.
+
+- Database setup (once): run `collector/sql/005_web_role.sql`, then give `hub_web` a password
+- Run locally: `cd web && npm run dev` (reads `../.env`), http://localhost:3005
+- Checks: `npm test`, `npm run typecheck`, `npm run lint`
+- Vercel env: `HUB_WEB_DATABASE_URL`, `HUB_PASSCODE`, `AUTH_SECRET`
