@@ -13,7 +13,7 @@ NOW = datetime(2026, 10, 17, 0, 5, tzinfo=timezone.utc)  # 09:05 KST
 
 def cand(id, category="invest", source=None):
     # Each article shares the seed direction plus one of its own, so no two look like the same story.
-    vector = tuple(1.0 if d in (0, id) else 0.0 for d in range(16))
+    vector = tuple(1.0 if d in (0, id) else 0.0 for d in range(32))
     return Candidate(id, source or f"s{id}", category, f"https://x.test/{id}", f"Secret title {id}", "desc", NOW - timedelta(hours=id), vector)
 
 
@@ -90,7 +90,7 @@ class FakeTelegram:
 
 class FakeEmbedder:
     def vectors(self, texts):
-        return [tuple(1.0 if d == 0 else 0.0 for d in range(16)) for _ in texts]
+        return [tuple(1.0 if d == 0 else 0.0 for d in range(32)) for _ in texts]
 
 
 class FakeSummarizer:
@@ -110,15 +110,15 @@ def test_kst_day_rolls_over_at_midnight_korea_time():
 
 
 def test_full_run_collects_votes_then_sends_and_records_once():
-    store, tg = FakeBriefStore([cand(i) for i in range(1, 13)], offset=4), FakeTelegram([Vote(3, 1)], next_offset=9)
+    store, tg = FakeBriefStore([cand(i) for i in range(1, 26)], offset=4), FakeTelegram([Vote(3, 1)], next_offset=9)
     stats, text = brief(store, tg, FakeSummarizer(), FakeEmbedder(), NOW)
     assert text is None
     assert store.votes == [Vote(3, 1)] and store.offsets == [9]
     assert len(tg.sent) == 1 and store.messages == [(1, 77)] and store.committed == 1
     day, ids, digests = store.briefs[0]
-    assert day == date(2026, 10, 17) and len(ids) == 10
+    assert day == date(2026, 10, 17) and len(ids) == 20
     assert sum(d.title.startswith("요약 제목") for d in digests) == 2  # the rest fall back to feed text
-    assert stats == {"votes": 1, "candidates": 12, "liked": 0, "disliked": 0, "summarized": 2, "picked": 10, "sent": True}
+    assert stats == {"votes": 1, "candidates": 25, "liked": 0, "disliked": 0, "summarized": 2, "picked": 20, "sent": True}
     assert "<i>주제: " in tg.sent[0][0]  # every pick says why
 
 

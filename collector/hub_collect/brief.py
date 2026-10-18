@@ -1,4 +1,4 @@
-"""Morning briefing: collect 👍/👎, rank the last two days, summarize the top 10 once, send one message.
+"""Morning briefing: collect 👍/👎, rank the last two days, summarize the top 20 once, send one message.
 
 Output is counts only: this repository and its Actions logs are public. `--dry-run` prints the message
 locally instead of sending it and refuses to run on Actions."""
@@ -20,7 +20,7 @@ from hub_collect.topics import TOPICS
 
 KST = timezone(timedelta(hours=9))  # Korea has no daylight saving time
 WINDOW_HOURS = 48
-BRIEF_SIZE = 10
+BRIEF_SIZE = 20
 FEEDBACK_DAYS = 90  # older votes stop steering, so interests can drift
 FEEDBACK_LIMIT = 200  # per direction; keeps scoring fast in pure Python
 

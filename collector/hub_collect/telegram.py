@@ -19,6 +19,8 @@ API = "https://api.telegram.org/bot{token}/{method}"
 MESSAGE_LIMIT = 4096
 TIMEOUT_SECONDS = 30
 LABELS = {"invest": "투자", "realestate": "부동산", "tech": "기술"}
+# Twenty articles with summaries pass the 4096 limit, so only the top ones carry a summary; the web shows all.
+SUMMARIZED = 10
 VOTE_DATA = re.compile(r"^v:(\d+):(-?1)$")
 
 Post = Callable[[str, dict, bytes], bytes]
@@ -52,9 +54,11 @@ Entry = tuple[Candidate, Digest, str]  # the str is the reason it was picked, ma
 def _render(day: date, entries: Sequence[Entry], summary_limit: int) -> str:
     lines = [f"<b>📰 {day.month}월 {day.day}일 아침 브리핑</b>"]
     for n, (c, d, reason) in enumerate(entries, 1):
+        if n == SUMMARIZED + 1:
+            lines += ["", "<b>더 볼 기사</b> (요약은 웹에서)"]
         lines.append("")
         lines.append(f'<b>{n}.</b> [{LABELS.get(c.category, c.category)}] <a href="{escape(c.url)}">{escape(d.title)}</a>')
-        summary = d.summary[:summary_limit]
+        summary = d.summary[:summary_limit] if n <= SUMMARIZED else ""
         if summary:
             lines.append(escape(summary))
         if reason:
@@ -77,7 +81,7 @@ def format_brief(
     buttons = []
     for n, (c, _, _) in enumerate(entries, 1):
         buttons += [{"text": f"{n} 👍", "callback_data": f"v:{c.id}:1"}, {"text": f"{n} 👎", "callback_data": f"v:{c.id}:-1"}]
-    # Two articles per row keeps ten articles to five rows of buttons.
+    # Two articles per row: twenty articles make ten rows of buttons.
     return text, [buttons[i : i + 4] for i in range(0, len(buttons), 4)]
 
 

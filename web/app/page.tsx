@@ -48,7 +48,7 @@ export default async function BriefingsPage() {
           <Groups brief={today} skipFirst />
         </>
       ) : (
-        <p className="empty">매일 오전 9시에 그날의 기사 10건이 여기에 올라와요.</p>
+        <p className="empty">매일 오전 9시에 그날의 기사 20건이 여기에 올라와요.</p>
       )}
       {earlier.length ? (
         <section className="earlier">

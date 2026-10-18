@@ -73,7 +73,7 @@ def test_live_news_tools(richrich_db, apt_db, settings):
     from hub_mcp import news
 
     latest = news.brief(richrich_db, None)
-    assert 1 <= len(latest["items"]) <= 10
+    assert 1 <= len(latest["items"]) <= 20
     found = news.search(richrich_db, None, "tech", 3, 5)["items"]
     assert len(found) <= 5 and all(i["category"] == "tech" for i in found)
     if found:

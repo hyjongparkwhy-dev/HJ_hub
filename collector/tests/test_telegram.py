@@ -54,6 +54,17 @@ def test_format_drops_summaries_before_exceeding_the_limit():
     assert text.count("<a href") == 10
 
 
+def test_only_the_top_ten_carry_summaries():
+    from hub_collect.telegram import visible_length
+
+    entries = [(cand(i), Digest(f"제목{i}" * 8, f"요약{i}" + "가" * 150), "주제: 반도체") for i in range(20)]
+    text, keyboard = format_brief(date(2026, 10, 17), entries)
+    assert visible_length(text) <= 4096
+    assert "요약9" in text and "요약10" not in text and "더 볼 기사" in text
+    assert text.count("<a href") == 20 and text.count("<i>") == 20
+    assert sum(len(row) for row in keyboard) == 40
+
+
 def test_format_drops_trailing_articles_as_a_last_resort():
     from hub_collect.telegram import visible_length
 

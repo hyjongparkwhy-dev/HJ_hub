@@ -101,7 +101,7 @@ def build_server(
 
     @server.tool(annotations=READ_ONLY)
     def news_brief(date: datetime.date | None = None) -> dict:
-        """The owner's morning briefing for `date` (YYYY-MM-DD; default the latest): 10 articles in rank order with
+        """The owner's morning briefing for `date` (YYYY-MM-DD; default the latest): up to 20 articles in rank order with
         relevance (0-100), the reason it was picked, the Korean summary, the owner's vote and the link."""
         return _answer(lambda: news.brief(richrich, date))
 
