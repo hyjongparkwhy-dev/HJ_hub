@@ -18,6 +18,7 @@ export interface BriefArticle extends Article {
   rank: number;
   reason: string | null;
   score: number; // 0–1 relevance the briefing ranked by
+  explore: boolean; // picked from outside the owner's usual interests
 }
 
 export interface Brief {
@@ -51,8 +52,8 @@ function article(r: Row): Article {
 export async function recentBriefs(): Promise<Brief[]> {
   const sql = getSql();
   // Briefing rows keep Gemini's Korean title and summary; the item keeps the feed's original.
-  const rows = await sql<(Row & { day: string; rank: number; reason: string | null; score: number })[]>`
-    select b.brief_date::text as day, bi.rank, bi.reason, bi.score, i.id, i.url, i.category, i.source,
+  const rows = await sql<(Row & { day: string; rank: number; reason: string | null; score: number; explore: boolean })[]>`
+    select b.brief_date::text as day, bi.rank, bi.reason, bi.score, bi.explore, i.id, i.url, i.category, i.source,
            bi.title, coalesce(bi.summary, i.summary) as summary,
            coalesce(i.published_at, i.fetched_at) as at, f.vote
     from hub.brief b
@@ -64,7 +65,7 @@ export async function recentBriefs(): Promise<Brief[]> {
   const briefs: Brief[] = [];
   for (const r of rows) {
     if (briefs.at(-1)?.day !== r.day) briefs.push({ day: r.day, articles: [] });
-    briefs.at(-1)!.articles.push({ ...article(r), rank: r.rank, reason: r.reason, score: Number(r.score) });
+    briefs.at(-1)!.articles.push({ ...article(r), rank: r.rank, reason: r.reason, score: Number(r.score), explore: r.explore });
   }
   return briefs;
 }

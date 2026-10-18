@@ -19,7 +19,8 @@ API = "https://api.telegram.org/bot{token}/{method}"
 MESSAGE_LIMIT = 4096
 TIMEOUT_SECONDS = 30
 LABELS = {"invest": "투자", "realestate": "부동산", "tech": "기술"}
-# Twenty articles with summaries pass the 4096 limit, so only the top ones carry a summary; the web shows all.
+# Twenty articles with summaries pass the 4096 limit, so only the top ones (and the explorations, which need
+# context) carry a summary; the web shows all.
 SUMMARIZED = 10
 VOTE_DATA = re.compile(r"^v:(\d+):(-?1)$")
 
@@ -51,14 +52,16 @@ def visible_length(text: str) -> int:
 Entry = tuple[Candidate, Digest, str]  # the str is the reason it was picked, may be empty
 
 
-def _render(day: date, entries: Sequence[Entry], summary_limit: int) -> str:
+def _render(day: date, entries: Sequence[Entry], summary_limit: int, explore_from: int | None = None) -> str:
     lines = [f"<b>📰 {day.month}월 {day.day}일 아침 브리핑</b>"]
     for n, (c, d, reason) in enumerate(entries, 1):
-        if n == SUMMARIZED + 1:
+        if n == explore_from:
+            lines += ["", "<b>🧭 새로운 주제</b> (평소 관심 밖에서 골랐어요)"]
+        elif n == SUMMARIZED + 1:
             lines += ["", "<b>더 볼 기사</b> (요약은 웹에서)"]
         lines.append("")
         lines.append(f'<b>{n}.</b> [{LABELS.get(c.category, c.category)}] <a href="{escape(c.url)}">{escape(d.title)}</a>')
-        summary = d.summary[:summary_limit] if n <= SUMMARIZED else ""
+        summary = d.summary[:summary_limit] if n <= SUMMARIZED or (explore_from and n >= explore_from) else ""
         if summary:
             lines.append(escape(summary))
         if reason:
@@ -67,17 +70,19 @@ def _render(day: date, entries: Sequence[Entry], summary_limit: int) -> str:
 
 
 def format_brief(
-    day: date, entries: Sequence[Entry], limit: int = MESSAGE_LIMIT
+    day: date, entries: Sequence[Entry], limit: int = MESSAGE_LIMIT, explore_from: int | None = None
 ) -> tuple[str, list[list[dict]]]:
     """Summaries shrink, then go, then trailing articles go, before the message would pass the length limit."""
     entries = list(entries)
     for summary_limit in (160, 80, 0):
-        text = _render(day, entries, summary_limit)
+        text = _render(day, entries, summary_limit, explore_from)
         if visible_length(text) <= limit:
             break
     while visible_length(text) > limit and len(entries) > 1:
         entries.pop()
-        text = _render(day, entries, 0)
+        if explore_from and explore_from > len(entries):
+            explore_from = None
+        text = _render(day, entries, 0, explore_from)
     buttons = []
     for n, (c, _, _) in enumerate(entries, 1):
         buttons += [{"text": f"{n} 👍", "callback_data": f"v:{c.id}:1"}, {"text": f"{n} 👎", "callback_data": f"v:{c.id}:-1"}]

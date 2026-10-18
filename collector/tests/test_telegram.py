@@ -65,6 +65,19 @@ def test_only_the_top_ten_carry_summaries():
     assert sum(len(row) for row in keyboard) == 40
 
 
+def test_explorations_get_their_own_labelled_section_with_summaries():
+    from hub_collect.telegram import visible_length
+
+    entries = [(cand(i), Digest(f"제목{i}", f"요약{i}" + "가" * 100), "주제: 반도체" if i < 15 else "") for i in range(20)]
+    text, keyboard = format_brief(date(2026, 10, 17), entries, explore_from=16)
+    assert visible_length(text) <= 4096 and text.count("🧭 새로운 주제") == 1 and text.count("더 볼 기사") == 1
+    assert text.index("더 볼 기사") < text.index("🧭 새로운 주제")
+    assert "요약10" not in text and "요약17" in text  # the explorations explain themselves
+    assert sum(len(row) for row in keyboard) == 40
+    trimmed, _ = format_brief(date(2026, 10, 17), entries[:3], explore_from=16)
+    assert "🧭" not in trimmed
+
+
 def test_format_drops_trailing_articles_as_a_last_resort():
     from hub_collect.telegram import visible_length
 

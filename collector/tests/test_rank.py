@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from hub_collect.rank import Candidate, Signal, pick, recency, score_all
+from hub_collect.rank import Candidate, Signal, explore_picks, pick, recency, score_all, select
 from hub_collect.topics import TOPICS
 
 NOW = datetime(2026, 10, 17, tzinfo=timezone.utc)
@@ -95,3 +95,52 @@ def test_pick_reserves_a_minimum_per_category():
 def test_pick_returns_fewer_when_candidates_run_out():
     assert pick(score_all([cand(1, (1.0,))], [Signal("주제: A", (1.0,))], NOW), size=10) != []
     assert pick([], size=10) == []
+
+
+def _far(id, topic, source, category="invest", hours=1):
+    """Stories about `topic` (an axis other than the interest axis 0), told by one outlet each."""
+    vector = [0.1] + [0.0] * 9
+    vector[topic] = 1.0
+    return cand(id, tuple(vector), source=source, category=category, hours=hours)
+
+
+def test_explore_picks_covered_stories_far_from_the_interests():
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 9)]
+    near = [cand(i, (1.0,) + (0.0,) * 9, source=f"n{i}") for i in range(1, 7)]
+    # topic 3 is told by three outlets, topic 5 by one: the covered one is the better exploration
+    far = [_far(10, 3, "x"), _far(11, 3, "y"), _far(12, 3, "z"), _far(13, 5, "w")]
+    scored = score_all(near + far, seeds, NOW)
+    extra = explore_picks(scored, pick(scored, size=3, per_source=3, per_category=0, duplicate=1.1), 2, NOW, per_category=2)
+    assert all(e.explore and e.reason == "" for e in extra)
+    assert {e.candidate.id for e in extra} <= {10, 11, 12, 13}
+    assert len({e.candidate.id for e in extra} & {10, 11, 12}) == 1  # the same story is never taken twice
+
+
+def test_explore_never_repeats_picked_or_duplicate_stories_and_spreads_topics():
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 9)]
+    near = [cand(i, (1.0,) + (0.0,) * 9, source=f"n{i}") for i in range(1, 5)]
+    far = [_far(20 + i, 2 + i, f"s{i}", category="tech" if i % 2 else "invest") for i in range(6)]
+    scored = score_all(near + far, seeds, NOW)
+    main = pick(scored, size=4, per_source=3, per_category=0, duplicate=1.1)
+    extra = explore_picks(scored, main, 4, NOW, per_category=2)
+    ids = [e.candidate.id for e in extra]
+    assert len(ids) == 4 and not set(ids) & {p.candidate.id for p in main}
+    assert [e.candidate.category for e in extra].count("tech") <= 2 and [e.candidate.category for e in extra].count("invest") <= 2
+
+
+def test_select_puts_explorations_last_and_falls_back_when_there_are_none():
+    def story(topic, strength):  # a distinct story: shares `strength` of the interest axis, the rest is its own topic
+        vector = [0.0] * 20
+        vector[0], vector[topic] = strength, 1.0
+        return tuple(vector)
+
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 19)]
+    near = [cand(i, story(10 + i, 1.0), source=f"n{i}") for i in range(1, 9)]
+    far = [cand(30 + i, story(2 + i, 0.1), source=f"s{i}") for i in range(3)]
+    scored = score_all(near + far, seeds, NOW)
+    chosen = select(scored, NOW, size=8, explore=3)
+    assert len(chosen) == 8 and [c.explore for c in chosen] == [False] * 5 + [True] * 3
+    # the only story left over repeats a picked one, so nothing can be explored and the usual picks stand
+    echo = [cand(i, story(10 + i, 1.0), source=f"n{i}") for i in range(1, 4)] + [cand(9, story(11, 1.0), source="dup")]
+    plain = select(score_all(echo, seeds, NOW), NOW, size=6, explore=3)
+    assert len(plain) == 3 and not any(c.explore for c in plain)

@@ -34,8 +34,8 @@ LIKED_LABEL_CHARS = 24
 BRIEFED_SQL = "select 1 from hub.brief where brief_date = %(day)s"
 BRIEF_SQL = "insert into hub.brief (brief_date, stats) values (%(day)s, %(stats)s::jsonb) returning id"
 BRIEF_ITEM_SQL = """
-insert into hub.brief_item (brief_id, rank, item_id, score, title, summary, reason)
-values (%(brief_id)s, %(rank)s, %(item_id)s, %(score)s, %(title)s, %(summary)s, %(reason)s)
+insert into hub.brief_item (brief_id, rank, item_id, score, title, summary, reason, explore)
+values (%(brief_id)s, %(rank)s, %(item_id)s, %(score)s, %(title)s, %(summary)s, %(reason)s, %(explore)s)
 """
 MESSAGE_SQL = "update hub.brief set message_id = %(message_id)s where id = %(id)s"
 # Presses on articles already purged by retention are dropped instead of failing the foreign key.
@@ -92,6 +92,7 @@ class BriefStore:
                         "title": d.title,
                         "summary": d.summary or None,
                         "reason": s.reason or None,
+                        "explore": s.explore,
                     },
                 )
         return brief_id

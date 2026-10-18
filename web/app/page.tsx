@@ -4,21 +4,40 @@ import { feedbackTrend, recentBriefs, type Brief } from "@/lib/queries";
 import { ArticleRow, LeadArticle } from "./article";
 
 function Groups({ brief, skipFirst }: { brief: Brief; skipFirst: boolean }) {
-  const max = Math.max(...brief.articles.map((a) => a.score));
-  const rest = skipFirst ? brief.articles.slice(1) : brief.articles;
-  return groupByCategory(rest).map((g) => (
-    <section key={g.category} className="group">
-      <h3>
-        {CATEGORY_LABEL[g.category] ?? g.category}
-        <span>{g.articles.length}건</span>
-      </h3>
-      <ol className="panel">
-        {g.articles.map((a) => (
-          <ArticleRow key={a.id} a={a} reason={a.reason} meter={{ value: a.score, max, label: "관련도" }} />
-        ))}
-      </ol>
-    </section>
-  ));
+  const usual = brief.articles.filter((a) => !a.explore);
+  const explored = brief.articles.filter((a) => a.explore);
+  const max = Math.max(...usual.map((a) => a.score));
+  return (
+    <>
+      {groupByCategory(skipFirst ? usual.slice(1) : usual).map((g) => (
+        <section key={g.category} className="group">
+          <h3>
+            {CATEGORY_LABEL[g.category] ?? g.category}
+            <span>{g.articles.length}건</span>
+          </h3>
+          <ol className="panel">
+            {g.articles.map((a) => (
+              <ArticleRow key={a.id} a={a} reason={a.reason} meter={{ value: a.score, max, label: "관련도" }} />
+            ))}
+          </ol>
+        </section>
+      ))}
+      {explored.length ? (
+        <section className="group explore">
+          <h3>
+            새로운 주제
+            <span>평소 관심 밖에서 골랐어요</span>
+          </h3>
+          <ol className="panel">
+            {explored.map((a) => (
+              <ArticleRow key={a.id} a={a} withCategory />
+            ))}
+          </ol>
+          <p className="note">마음에 들면 좋아요를 눌러 주세요. 비슷한 주제가 앞으로 더 나와요.</p>
+        </section>
+      ) : null}
+    </>
+  );
 }
 
 export default async function BriefingsPage() {

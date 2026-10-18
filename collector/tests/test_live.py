@@ -123,3 +123,21 @@ def test_live_telegram_votes_do_not_overwrite_web_votes(conn):
         store.save_votes([Vote(web_id, 1), Vote(tg_id, -1)])
         votes = dict(conn.execute("select item_id, vote from hub.feedback where item_id = any(%s)", ([web_id, tg_id],)).fetchall())
         assert votes == {web_id: -1, tg_id: -1}
+
+
+def test_live_brief_items_record_explorations(conn):
+    from datetime import date
+
+    from hub_collect.brief_store import BriefStore
+    from hub_collect.rank import Scored
+
+    item = Item("test", "tech", "https://hub-test.invalid/explore", "Explore", "exploretrip", "", None)
+    with conn.transaction(force_rollback=True):
+        Store(conn).insert([item], [[0.1] * DIM])
+        item_id = conn.execute("select id from hub.item where url = %s", (item.url,)).fetchone()[0]
+        from hub_collect.rank import Candidate
+        from hub_collect.summarize import Digest
+
+        cand = Candidate(item_id, "test", "tech", item.url, "Explore", "", datetime(2026, 10, 18, tzinfo=timezone.utc), (1.0,))
+        BriefStore(conn).save_brief(date(1999, 1, 3), [Scored(cand, 0.1, 0.1, (1.0,), "", True)], [Digest("t", "s")], {})
+        assert conn.execute("select explore from hub.brief_item where item_id = %s", (item_id,)).fetchone()[0] is True

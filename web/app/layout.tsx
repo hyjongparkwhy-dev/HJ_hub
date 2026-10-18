@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HJ 아침 신문",
+  title: "HJ Briefing",
   description: "투자·부동산·기술 뉴스 아침 브리핑",
   robots: { index: false, follow: false },
 };
@@ -29,10 +29,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         <nav className="topbar" aria-label="메뉴">
-          <Link href="/" className="brand">HJ 아침 신문</Link>
+          <Link href="/" className="brand">HJ Briefing</Link>
           <span>
             <Link href="/">브리핑</Link>
             <Link href="/search">검색</Link>
+            <Link href="/projects">프로젝트</Link>
           </span>
         </nav>
         {children}

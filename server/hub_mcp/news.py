@@ -25,7 +25,7 @@ to_char(coalesce(i.published_at, i.fetched_at) at time zone 'Asia/Seoul', 'YYYY-
 LATEST_BRIEF_SQL = "select max(brief_date) as day from hub.brief"
 
 BRIEF_SQL = f"""
-select bi.rank, round(bi.score * 100)::int as relevance, bi.reason, bi.title as brief_title, bi.summary as brief_summary,
+select bi.rank, round(bi.score * 100)::int as relevance, bi.explore, bi.reason, bi.title as brief_title, bi.summary as brief_summary,
        {ITEM_COLUMNS}
 from hub.brief b
 join hub.brief_item bi on bi.brief_id = b.id
@@ -147,7 +147,8 @@ def brief(db: Reader, day: date | None) -> dict[str, Any]:
         "items": rows,
         "notes": [
             "relevance는 관심 주제·투표와 비슷한 정도를 0~100으로 나타낸 순위 점수입니다. "
-            "brief_title·brief_summary는 브리핑에 실린 제목과 Gemini 한국어 요약입니다.",
+            "brief_title·brief_summary는 브리핑에 실린 제목과 Gemini 한국어 요약입니다. "
+            "explore가 true인 기사는 평소 관심 밖에서 일부러 고른 '새로운 주제'(관련도 낮음)입니다.",
             CATEGORY_NOTE,
             VOTE_NOTE,
         ],
