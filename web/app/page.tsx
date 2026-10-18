@@ -33,9 +33,9 @@ export default async function BriefingsPage() {
           <small>{today ? "아침 브리핑" : "브리핑"}</small>
           {today ? dateLabel(today.day).replace(/ \S+요일$/, "") : "아직 없어요"}
         </h1>
-        <p className="rate" title={`그 전 7일 ${percent(upRate(trend.lastWeek.up, trend.lastWeek.votes))} (${trend.lastWeek.votes}표)`}>
+        <p className="rate" title={`그 전 7일: 투표 ${trend.lastWeek.votes}개 중 좋아요 ${percent(upRate(trend.lastWeek.up, trend.lastWeek.votes))}`}>
           <b>{percent(rate)}</b>
-          최근 7일 좋아요 · {trend.thisWeek.votes}표
+          최근 7일 투표 {trend.thisWeek.votes}개 중 좋아요
         </p>
       </header>
       {today ? (
