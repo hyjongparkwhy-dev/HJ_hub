@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from hub_collect.brief_store import BriefStore
 from hub_collect.embed import Embedder
-from hub_collect.rank import EXPLORE_SIZE, Signal, score_all, select
+from hub_collect.rank import EXPLORE_SIZE, VIDEO_SIZE, Signal, score_all, select
 from hub_collect.settings import load_database_url, load_setting
 from hub_collect.store import connect
 from hub_collect.summarize import GeminiSummarizer, SummaryError, fallback
@@ -20,7 +20,7 @@ from hub_collect.topics import TOPICS
 
 KST = timezone(timedelta(hours=9))  # Korea has no daylight saving time
 WINDOW_HOURS = 48
-BRIEF_SIZE = 20  # the last EXPLORE_SIZE of them are explorations
+BRIEF_SIZE = 20  # VIDEO_SIZE videos, then EXPLORE_SIZE explorations, close the list
 FEEDBACK_DAYS = 90  # older votes stop steering, so interests can drift
 FEEDBACK_LIMIT = 200  # per direction; keeps scoring fast in pure Python
 
@@ -57,7 +57,7 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
     seeds = [Signal(f"주제: {t.label}", v) for t, v in zip(TOPICS, embedder.vectors([t.text for t in TOPICS]), strict=True)]
     liked, disliked = store.feedback_signals(FEEDBACK_DAYS, FEEDBACK_LIMIT)
     stats["liked"], stats["disliked"] = len(liked), len(disliked)
-    picked = select(score_all(candidates, seeds, now, liked, disliked), now, BRIEF_SIZE, EXPLORE_SIZE)
+    picked = select(score_all(candidates, seeds, now, liked, disliked), now, BRIEF_SIZE, EXPLORE_SIZE, VIDEO_SIZE)
     # Digests made earlier today are reused, so a rerun after a failed send does not spend Gemini quota again.
     digests = store.cached_digests(day)
     missing = [s.candidate for s in picked if s.candidate.id not in digests]
@@ -73,9 +73,11 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
     stats["summarized"] = sum(s.candidate.id in digests for s in picked)
     entries = [(s.candidate, digests.get(s.candidate.id) or fallback(s.candidate), s.reason) for s in picked]
     explore_from = next((n for n, s in enumerate(picked, 1) if s.explore), None)
-    text, keyboard = format_brief(day, entries, explore_from=explore_from)
+    video_from = next((n for n, s in enumerate(picked, 1) if s.candidate.is_video), None)
+    text, keyboard = format_brief(day, entries, explore_from=explore_from, video_from=video_from)
     stats["picked"] = len(entries)
     stats["explore"] = sum(s.explore for s in picked)
+    stats["video"] = sum(s.candidate.is_video for s in picked)
     if dry_run:
         return stats, text
     # The rows are written first and committed after the send. A refused send rolls back so a rerun tries

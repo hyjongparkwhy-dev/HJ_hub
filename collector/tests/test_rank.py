@@ -144,3 +144,30 @@ def test_select_puts_explorations_last_and_falls_back_when_there_are_none():
     echo = [cand(i, story(10 + i, 1.0), source=f"n{i}") for i in range(1, 4)] + [cand(9, story(11, 1.0), source="dup")]
     plain = select(score_all(echo, seeds, NOW), NOW, size=6, explore=3)
     assert len(plain) == 3 and not any(c.explore for c in plain)
+
+
+def _video(id, topic, channel, hours=1):
+    vector = [0.0] * 20
+    vector[0], vector[topic] = 0.5, 1.0
+    return Candidate(id, channel, "tech", f"https://www.youtube.com/watch?v={id}", f"v{id}", "", NOW - timedelta(hours=hours), tuple(vector))
+
+
+def test_select_gives_videos_their_own_slots_one_per_channel():
+    def story(topic, strength):
+        vector = [0.0] * 20
+        vector[0], vector[topic] = strength, 1.0
+        return tuple(vector)
+
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 19)]
+    articles = [cand(i, story(10 + i, 1.0), source=f"n{i}") for i in range(1, 10)] + [cand(30 + i, story(2 + i, 0.1), source=f"s{i}") for i in range(3)]
+    videos = [_video(50, 14, "chanA"), _video(51, 15, "chanA"), _video(52, 16, "chanB"), _video(53, 17, "chanC"), _video(54, 18, "chanD")]
+    chosen = select(score_all(articles + videos, seeds, NOW), NOW, size=10, explore=2, video=3)
+    assert len(chosen) == 10
+    clips = [c for c in chosen if c.candidate.is_video]
+    assert len(clips) == 3 and len({c.candidate.source for c in clips}) == 3  # chanA once
+    assert [c.explore for c in chosen] == [False] * 5 + [False] * 3 + [True] * 2
+    assert all(c.candidate.is_video for c in chosen[5:8])
+    assert not any(c.candidate.is_video for c in chosen if c.explore)
+    # with no videos at all, the slots go back to articles
+    none = select(score_all(articles, seeds, NOW), NOW, size=10, explore=2, video=3)
+    assert len(none) == 10 and not any(c.candidate.is_video for c in none)

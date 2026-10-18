@@ -1,11 +1,12 @@
 import { connection } from "next/server";
-import { CATEGORY_LABEL, dateLabel, groupByCategory, percent, upRate } from "@/lib/format";
+import { CATEGORY_LABEL, dateLabel, groupByCategory, isVideo, percent, upRate } from "@/lib/format";
 import { feedbackTrend, recentBriefs, type Brief } from "@/lib/queries";
 import { ArticleRow, LeadArticle } from "./article";
 
 function Groups({ brief, skipFirst }: { brief: Brief; skipFirst: boolean }) {
-  const usual = brief.articles.filter((a) => !a.explore);
   const explored = brief.articles.filter((a) => a.explore);
+  const videos = brief.articles.filter((a) => !a.explore && isVideo(a.url));
+  const usual = brief.articles.filter((a) => !a.explore && !isVideo(a.url));
   const max = Math.max(...usual.map((a) => a.score));
   return (
     <>
@@ -22,6 +23,19 @@ function Groups({ brief, skipFirst }: { brief: Brief; skipFirst: boolean }) {
           </ol>
         </section>
       ))}
+      {videos.length ? (
+        <section className="group videos">
+          <h3>
+            영상
+            <span>AI·테크 채널의 새 영상</span>
+          </h3>
+          <ol className="panel">
+            {videos.map((a) => (
+              <ArticleRow key={a.id} a={a} />
+            ))}
+          </ol>
+        </section>
+      ) : null}
       {explored.length ? (
         <section className="group explore">
           <h3>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CATEGORY_LABEL, SOURCE_LABEL, points, reasonLines } from "@/lib/format";
+import { CATEGORY_LABEL, SOURCE_LABEL, isVideo, points, reasonLines } from "@/lib/format";
 import type { Article } from "@/lib/queries";
 import { VoteButtons } from "./vote-buttons";
 
@@ -15,7 +15,7 @@ export interface Meter {
 function Meta({ a, withCategory }: { a: Article; withCategory: boolean }) {
   return (
     <>
-      {withCategory ? `${CATEGORY_LABEL[a.category] ?? a.category} · ` : null}
+      {withCategory ? `${isVideo(a.url) ? "영상" : (CATEGORY_LABEL[a.category] ?? a.category)} · ` : null}
       {SOURCE_LABEL[a.source] ?? a.source} · <time dateTime={a.at}>{TIME.format(new Date(a.at))}</time>
     </>
   );

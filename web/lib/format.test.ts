@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateLabel, groupByCategory, percent, points, reasonLines, searchPatterns, upRate } from "./format";
+import { dateLabel, groupByCategory, isVideo, percent, points, reasonLines, searchPatterns, upRate } from "./format";
 
 describe("dateLabel", () => {
   it("names the KST calendar day and weekday", () => {
@@ -48,5 +48,14 @@ describe("groupByCategory", () => {
       ["invest", [2]],
     ]);
     expect(points(0.536)).toBe(54);
+  });
+});
+
+describe("isVideo", () => {
+  it("recognises YouTube links only", () => {
+    expect(isVideo("https://www.youtube.com/watch?v=abc")).toBe(true);
+    expect(isVideo("https://youtu.be/abc")).toBe(true);
+    expect(isVideo("https://notyoutube.com/watch")).toBe(false);
+    expect(isVideo("not a url")).toBe(false);
   });
 });

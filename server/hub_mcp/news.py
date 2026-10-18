@@ -9,7 +9,7 @@ from typing import Any
 from hub_mcp.db import QueryError, Reader, clamp, like_tokens
 from hub_mcp.stocks import resolve_stock
 
-CATEGORY_NOTE = "category: invest=투자, realestate=부동산, tech=기술. at_kst는 기사 시각(없으면 수집 시각, 한국 시간)입니다."
+CATEGORY_NOTE = "category: invest=투자, realestate=부동산, tech=기술. is_video가 true면 유튜브 영상(쇼츠 제외, 제목·설명만 수집, 자막 없음)입니다. at_kst는 기사 시각(없으면 수집 시각, 한국 시간)입니다."
 VOTE_NOTE = "vote는 주인이 누른 👍(1)/👎(-1), 없으면 null입니다."
 POOL_NOTE = "기사 풀은 언론사 27곳 RSS를 4시간마다 모은 것으로 최근 90일치만 남아 있습니다. summary는 RSS 설명이며 비어 있을 수 있습니다."
 MATCH_NOTE = (
@@ -19,7 +19,8 @@ MATCH_NOTE = (
 
 ITEM_COLUMNS = """
 i.id, i.category, i.source, i.title, i.summary, i.url,
-to_char(coalesce(i.published_at, i.fetched_at) at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as at_kst, f.vote
+to_char(coalesce(i.published_at, i.fetched_at) at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as at_kst, f.vote,
+i.url ~ '^https://(www[.])?(youtube[.]com|youtu[.]be)/' as is_video
 """
 
 LATEST_BRIEF_SQL = "select max(brief_date) as day from hub.brief"

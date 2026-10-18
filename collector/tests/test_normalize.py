@@ -48,3 +48,16 @@ def test_parse_feed_clamps_future_dates_and_keeps_missing_ones_null():
 def test_nul_and_control_characters_are_removed():
     assert clean_text("a\x00b\x07c\td") == "abc d"
     assert canonical_url("https://example.com/a\x00b") == "https://example.com/ab"
+
+
+def test_youtube_shorts_are_dropped_and_videos_kept():
+    from datetime import datetime, timezone
+
+    from hub_collect.normalize import parse_feed
+    from hub_collect.sources import Source
+
+    xml = b"""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry><title>A short</title><link rel="alternate" href="https://www.youtube.com/shorts/abc"/><updated>2026-10-18T00:00:00+00:00</updated></entry>
+    <entry><title>A full video</title><link rel="alternate" href="https://www.youtube.com/watch?v=xyz"/><updated>2026-10-18T00:00:00+00:00</updated></entry></feed>"""
+    items = parse_feed(Source("yt_x", "https://www.youtube.com/feeds/videos.xml?channel_id=x", "tech", "en"), xml, datetime(2026, 10, 18, tzinfo=timezone.utc))
+    assert [i.title for i in items] == ["A full video"]

@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 
-from hub_collect.sources import CATEGORIES
+from hub_collect.sources import CATEGORIES, is_video
 
 HALF_LIFE_HOURS = 24.0
 FRESHNESS_WEIGHT = 0.3
@@ -22,6 +22,7 @@ SAME_STORY = 0.75
 # Exploration slots come from the least interesting half of the candidates, so a 👍 there can reveal a new interest.
 # Another outlet telling the same story (0.74-0.93 apart, see above) is the quality signal; freshness breaks ties.
 EXPLORE_SIZE = 5
+VIDEO_SIZE = 3  # one per channel, ranked among videos only so they never compete with articles
 EXPLORE_POOL = 100  # newest candidates compared; keeps the pure-Python similarity count to a few seconds
 COVERED = 0.7
 COVERAGE_CAP = 3
@@ -39,6 +40,10 @@ class Candidate:
     summary: str
     at: datetime
     vector: Sequence[float]
+
+    @property
+    def is_video(self) -> bool:
+        return is_video(self.url)
 
 
 @dataclass(frozen=True)
@@ -177,11 +182,16 @@ def explore_picks(
     return extra
 
 
-def select(scored: Sequence[Scored], now: datetime, size: int, explore: int = EXPLORE_SIZE) -> list[Scored]:
-    """The usual top picks, then `explore` slots; when too few explorable stories exist the usual picks fill in."""
-    main = pick(scored, size=size - explore)
-    extra = explore_picks(scored, main, explore, now)
+def select(
+    scored: Sequence[Scored], now: datetime, size: int, explore: int = EXPLORE_SIZE, video: int = VIDEO_SIZE
+) -> list[Scored]:
+    """Usual article picks, then `video` videos (best from different channels), then `explore` articles from outside
+    the usual interests. A slot with nothing to fill it goes back to the usual picks."""
+    articles = [s for s in scored if not s.candidate.is_video]
+    clips = pick([s for s in scored if s.candidate.is_video], size=video, per_source=1, per_category=0)
+    main = pick(articles, size=size - explore - len(clips))
+    extra = explore_picks(articles, main, explore, now)
     if len(extra) < explore:
         taken = {e.candidate.id for e in extra}
-        main = pick([s for s in scored if s.candidate.id not in taken], size=size - len(extra))
-    return main + extra
+        main = pick([s for s in articles if s.candidate.id not in taken], size=size - len(extra) - len(clips))
+    return main + clips + extra

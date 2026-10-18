@@ -78,6 +78,22 @@ def test_explorations_get_their_own_labelled_section_with_summaries():
     assert "🧭" not in trimmed
 
 
+def test_videos_get_their_own_section_before_the_explorations():
+    from hub_collect.telegram import visible_length
+
+    def entry(i, video=False):
+        c = cand(i, url=f"https://www.youtube.com/watch?v={i}" if video else None)
+        return (c, Digest(f"제목{i}", f"요약{i}" + "가" * 100), "주제: 반도체" if i < 12 else "")
+
+    entries = [entry(i, video=12 <= i < 15) for i in range(20)]
+    text, keyboard = format_brief(date(2026, 10, 17), entries, explore_from=16, video_from=13)
+    assert visible_length(text) <= 4096
+    assert text.index("더 볼 기사") < text.index("▶ 영상") < text.index("🧭 새로운 주제")
+    assert text.count("[영상]") == 3 and text.count("▶ 영상") == 1
+    assert "요약10" not in text and "요약13" in text and "요약17" in text
+    assert sum(len(row) for row in keyboard) == 40
+
+
 def test_format_drops_trailing_articles_as_a_last_resort():
     from hub_collect.telegram import visible_length
 

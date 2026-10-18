@@ -30,6 +30,25 @@ export const SOURCE_LABEL: Record<string, string> = {
   cnbc_tech: "CNBC",
   engadget: "Engadget",
   // Removed 2026-10-17 (not news outlets); kept so older briefings still show a name.
+  yt_claude: "Claude",
+  yt_anthropic: "Anthropic",
+  yt_routeai: "이동훈의 루트AI",
+  yt_aiexplained: "AI Explained",
+  yt_aiengineer: "AI Engineer",
+  yt_mattwolfe: "Matt Wolfe",
+  yt_a16z: "a16z",
+  yt_verge: "The Verge",
+  yt_mkbhd: "Marques Brownlee",
+  yt_svgirl: "Silicon Valley Girl",
+  yt_aiadvantage: "The AI Advantage",
+  yt_twist: "This Week in Startups",
+  yt_allin: "All-In",
+  yt_nateherk: "Nate Herk",
+  yt_benai: "Ben AI",
+  yt_howiai: "How I AI",
+  yt_yc: "Y Combinator",
+  yt_greg: "Greg Isenberg",
+  yt_lenny: "Lenny's Podcast",
   geeknews: "GeekNews",
   hackernews: "Hacker News",
 };
@@ -92,4 +111,14 @@ export function groupByCategory<T extends { category: string }>(articles: T[]): 
   const groups = new Map<string, T[]>();
   for (const a of articles) groups.set(a.category, [...(groups.get(a.category) ?? []), a]);
   return [...groups].map(([category, list]) => ({ category, articles: list }));
+}
+
+/** YouTube links; the collector keeps full videos only (no shorts). */
+export function isVideo(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host === "youtube.com" || host === "youtu.be";
+  } catch {
+    return false;
+  }
 }

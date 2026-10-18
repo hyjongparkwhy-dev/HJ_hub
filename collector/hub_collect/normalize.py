@@ -60,6 +60,8 @@ def parse_feed(source: Source, body: bytes, now: datetime) -> list[Item]:
         link = entry.get("link", "").strip()
         if not title or not link.startswith(("http://", "https://")):
             continue
+        if "youtube.com/shorts/" in link:  # a few seconds of video and a title: too little to rank or summarize
+            continue
         items.append(
             Item(
                 source.id,
