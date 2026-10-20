@@ -12,4 +12,5 @@ export const PROJECTS: Project[] = [
   { name: "APT Leader", description: "수도권 대장 아파트를 내 집과 비교", url: "https://apt-leader.vercel.app", host: "apt-leader.vercel.app" },
   { name: "Weekend Kid", description: "광교에서 차로 90분, 이번 주말 아이와 갈 곳", url: "https://weekend-kid.vercel.app", host: "weekend-kid.vercel.app" },
   { name: "Let's eat", description: "평일 저녁·주말 끼니를 짜주는 가족 식단표", url: "https://kid-meal.vercel.app", host: "kid-meal.vercel.app" },
+  { name: "OOTD Lab", description: "가족 옷장에서 오늘 날씨에 맞는 코디를 골라줘요", url: "https://closet-mix.vercel.app", host: "closet-mix.vercel.app" },
 ];
