@@ -128,7 +128,7 @@ ol, ul { list-style: none; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 16px; }
 .card { display: flex; flex-direction: column; gap: 6px; height: 100%; padding: 14px 16px 12px; background: var(--panel); border-radius: 14px; }
 .card-title { display: flex; align-items: center; gap: 10px; }
-.card-icon { flex: none; width: 32px; height: 32px; padding: 6px; border-radius: 9px; background: var(--hover); fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.card-icon { flex: none; width: 40px; height: 40px; border-radius: 22%; }
 .card-name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
 .card-desc { font-size: 13px; color: var(--ink); opacity: 0.8; line-height: 1.5; overflow-wrap: anywhere; }
 .card-host { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px; font-size: 12px; color: var(--sub); }
