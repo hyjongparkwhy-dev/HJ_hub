@@ -1,4 +1,4 @@
-import { PROJECT_ICONS } from "@/lib/project-icons";
+import Image from "next/image";
 import { PROJECTS, type Project } from "@/lib/projects";
 
 function Card({ p }: { p: Project }) {
@@ -6,11 +6,7 @@ function Card({ p }: { p: Project }) {
     <li>
       <a className="card" href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`${p.name} 열기`}>
         <span className="card-title">
-          <svg className="card-icon" viewBox="0 0 24 24" aria-hidden="true">
-            {(PROJECT_ICONS[p.name] ?? []).map((d) => (
-              <path key={d} d={d} />
-            ))}
-          </svg>
+          <Image className="card-icon" src={p.icon} alt="" width={40} height={40} unoptimized />
           <span className="card-name">{p.name}</span>
         </span>
         <span className="card-desc">{p.description}</span>
