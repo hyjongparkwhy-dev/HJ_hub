@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 
@@ -23,6 +23,10 @@ SAME_STORY = 0.75
 # Another outlet telling the same story (0.74-0.93 apart, see above) is the quality signal; freshness breaks ties.
 EXPLORE_SIZE = 5
 VIDEO_SIZE = 3  # one per channel, ranked among videos only so they never compete with articles
+# Relative weights of the usual article picks per category. Scores alone cannot set the mix: votes made 부동산 score
+# 70-80 while tech tops out near 50, so the weights decide how many slots each category gets.
+CATEGORY_SHARE = {"tech": 5, "invest": 4, "realestate": 3}
+EXPLORE_SKIP = ("realestate",)  # a known interest is not a new one; explorations come from the other fields
 EXPLORE_POOL = 100  # newest candidates compared; keeps the pure-Python similarity count to a few seconds
 COVERED = 0.7
 COVERAGE_CAP = 3
@@ -110,12 +114,29 @@ def score_all(
     return sorted(scored, key=lambda s: s.score, reverse=True)
 
 
+def category_quotas(size: int, share: Mapping[str, int] = CATEGORY_SHARE) -> dict[str, int]:
+    """Splits `size` slots in proportion to `share`; the largest remainders get the leftover slots."""
+    total = sum(share.values())
+    quotas = {c: size * w // total for c, w in share.items()}
+    by_remainder = sorted(share, key=lambda c: (size * share[c] % total, share[c]), reverse=True)
+    for c in by_remainder[: size - sum(quotas.values())]:
+        quotas[c] += 1
+    return quotas
+
+
 def pick(
-    scored: Sequence[Scored], size: int = 10, per_source: int = 2, per_category: int = 2, duplicate: float = SAME_STORY
+    scored: Sequence[Scored],
+    size: int = 10,
+    per_source: int = 2,
+    per_category: int = 2,
+    duplicate: float = SAME_STORY,
+    quota: Mapping[str, int] | None = None,
 ) -> list[Scored]:
-    """Greedy top `size` from score order. Each category first gets up to `per_category` slots so one busy
-    field cannot fill the whole briefing; one story covered by several outlets counts once."""
+    """Greedy top `size` from score order. Each category first gets its `quota` slots (default: `per_category`
+    for every category) so one busy field cannot fill the whole briefing; slots a category cannot fill go to the
+    best of the rest. One story covered by several outlets counts once."""
     picked: list[Scored] = []
+    limits = quota if quota is not None else dict.fromkeys(CATEGORIES, per_category)
 
     def fits(s: Scored) -> bool:
         if any(p is s for p in picked) or sum(p.candidate.source == s.candidate.source for p in picked) >= per_source:
@@ -125,7 +146,7 @@ def pick(
     for category in CATEGORIES:
         taken = 0
         for s in scored:
-            if taken >= per_category or len(picked) >= size:
+            if taken >= limits.get(category, 0) or len(picked) >= size:
                 break
             if s.candidate.category == category and fits(s):
                 picked.append(s)
@@ -146,13 +167,14 @@ def explore_picks(
     per_source: int = 2,
     per_category: int = 2,
     duplicate: float = SAME_STORY,
+    skip_categories: Collection[str] = (),
 ) -> list[Scored]:
     """`count` fresh stories from outside the owner's usual interests, each told by other outlets too."""
     if count <= 0 or not scored:
         return []
     chosen = {p.candidate.id for p in picked}
     median = sorted(s.relevance for s in scored)[len(scored) // 2]
-    pool = [s for s in scored if s.candidate.id not in chosen and s.relevance <= median]
+    pool = [s for s in scored if s.candidate.id not in chosen and s.relevance <= median and s.candidate.category not in skip_categories]
     pool.sort(key=lambda s: recency(s.candidate.at, now), reverse=True)
 
     def coverage(s: Scored) -> int:
@@ -189,9 +211,11 @@ def select(
     the usual interests. A slot with nothing to fill it goes back to the usual picks."""
     articles = [s for s in scored if not s.candidate.is_video]
     clips = pick([s for s in scored if s.candidate.is_video], size=video, per_source=1, per_category=0)
-    main = pick(articles, size=size - explore - len(clips))
-    extra = explore_picks(articles, main, explore, now)
+    main_size = size - explore - len(clips)
+    main = pick(articles, size=main_size, quota=category_quotas(main_size))
+    extra = explore_picks(articles, main, explore, now, skip_categories=EXPLORE_SKIP)
     if len(extra) < explore:
         taken = {e.candidate.id for e in extra}
-        main = pick([s for s in articles if s.candidate.id not in taken], size=size - len(extra) - len(clips))
+        main_size = size - len(extra) - len(clips)
+        main = pick([s for s in articles if s.candidate.id not in taken], size=main_size, quota=category_quotas(main_size))
     return main + clips + extra

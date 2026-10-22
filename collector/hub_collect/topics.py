@@ -21,4 +21,7 @@ TOPICS = (
     Topic("realestate", "경기 남부 개발", "경기 남부 개발 호재: 신도시, GTX와 철도, 반도체 클러스터"),
     Topic("tech", "AI 코딩 도구", "AI 코딩 에이전트와 개발 도구, LLM 활용 소프트웨어 개발"),
     Topic("tech", "오픈소스 AI", "오픈소스 AI 모델과 언어 모델 출시, 벤치마크"),
+    Topic("tech", "AI 서비스·에이전트", "ChatGPT, Claude, Gemini 같은 생성형 AI 서비스, 새 모델 출시와 AI 에이전트"),
+    Topic("tech", "AI 인프라", "AI 데이터센터, GPU와 AI 칩, 클라우드 투자와 전력 수요"),
+    Topic("tech", "빅테크 제품·정책", "구글, 애플, 메타, 마이크로소프트의 새 제품과 플랫폼 정책, 규제"),
 )

@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
 from hub_collect.brief_store import BriefStore
@@ -78,6 +79,7 @@ def brief(store, telegram, summarizer, embedder, now: datetime, dry_run: bool = 
     stats["picked"] = len(entries)
     stats["explore"] = sum(s.explore for s in picked)
     stats["video"] = sum(s.candidate.is_video for s in picked)
+    stats["mix"] = dict(Counter(s.candidate.category for s in picked))  # counts per category, no titles
     if dry_run:
         return stats, text
     # The rows are written first and committed after the send. A refused send rolls back so a rerun tries

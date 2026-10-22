@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from hub_collect.rank import Candidate, Signal, explore_picks, pick, recency, score_all, select
+from hub_collect.rank import Candidate, Signal, category_quotas, explore_picks, pick, recency, score_all, select
 from hub_collect.topics import TOPICS
 
 NOW = datetime(2026, 10, 17, tzinfo=timezone.utc)
@@ -171,3 +171,52 @@ def test_select_gives_videos_their_own_slots_one_per_channel():
     # with no videos at all, the slots go back to articles
     none = select(score_all(articles, seeds, NOW), NOW, size=10, explore=2, video=3)
     assert len(none) == 10 and not any(c.candidate.is_video for c in none)
+
+
+def test_category_quotas_follow_the_shares_and_always_sum_to_the_size():
+    assert category_quotas(12) == {"tech": 5, "invest": 4, "realestate": 3}
+    assert category_quotas(6) == {"tech": 3, "invest": 2, "realestate": 1}
+    for size in range(0, 30):
+        assert sum(category_quotas(size).values()) == size
+    assert category_quotas(13)["tech"] == 6  # the largest remainder goes to the heaviest share
+
+
+def _mixed():
+    """Real estate scores far above tech, like the owner's votes made it: one axis per story, none a duplicate."""
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 29)]
+
+    def story(topic, strength, category, source):
+        vector = [0.0] * 30
+        vector[0], vector[topic] = strength, 1.0
+        return cand(100 * (topic + 1), tuple(vector), source=source, category=category)
+
+    realestate = [story(1 + i, 1.5, "realestate", f"r{i}") for i in range(8)]
+    invest = [story(10 + i, 1.0, "invest", f"i{i}") for i in range(8)]
+    tech = [story(20 + i, 0.2, "tech", f"t{i}") for i in range(8)]
+    return seeds, realestate + invest + tech
+
+
+def test_quota_gives_tech_its_slots_although_real_estate_scores_higher():
+    seeds, cands = _mixed()
+    scored = score_all(cands, seeds, NOW)
+    picked = pick(scored, size=12, per_source=2, quota=category_quotas(12))
+    mix = {c: sum(p.candidate.category == c for p in picked) for c in ("tech", "invest", "realestate")}
+    assert mix == {"tech": 5, "invest": 4, "realestate": 3}
+    by_score = pick(scored, size=12, per_source=2, per_category=0)  # without quotas real estate fills the list
+    assert sum(p.candidate.category == "realestate" for p in by_score) > 3
+
+
+def test_a_category_that_cannot_fill_its_quota_hands_the_slots_to_the_rest():
+    seeds, cands = _mixed()
+    no_tech = [c for c in cands if c.category != "tech"]
+    picked = pick(score_all(no_tech, seeds, NOW), size=12, per_source=2, quota=category_quotas(12))
+    assert len(picked) == 12 and not any(p.candidate.category == "tech" for p in picked)
+
+
+def test_explorations_skip_real_estate_and_select_applies_the_mix():
+    seeds, cands = _mixed()
+    chosen = select(score_all(cands, seeds, NOW), NOW, size=20, explore=5, video=0)
+    usual = [c for c in chosen if not c.explore]
+    assert {c: sum(u.candidate.category == c for u in usual) for c in ("tech", "invest", "realestate")} == {"tech": 6, "invest": 5, "realestate": 4}
+    explored = [c for c in chosen if c.explore]
+    assert explored and all(c.candidate.category != "realestate" for c in explored)
