@@ -15,6 +15,14 @@ from hub_collect.sources import Source
 SUMMARY_LIMIT = 500
 TITLE_LIMIT = 300
 TRACKING_KEYS = {"fbclid", "gclid", "cmpid"}
+# Economy feeds carry many housing stories, which then took 투자 slots while 부동산 had its own. Checked on 14 days of
+# invest/tech titles (2026-10-23): 청약 alone was mostly IPO subscriptions, 전세 also matched 전세기/전세계, and tech
+# feeds matched only side mentions, so 청약 is left out and tech feeds keep their category.
+HOUSING_TITLE = re.compile(
+    r"아파트|집값|부동산|주택|분양|재건축|재개발|전셋값|전세(?![계기])|월세|오피스텔|빌라"
+    r"|real estate|housing|home prices|homebuyer|mortgage",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -53,6 +61,12 @@ def title_key(title: str) -> str:
     return "".join(ch for ch in title.lower() if ch.isalnum())
 
 
+def category_for(source: Source, title: str) -> str:
+    if source.category == "invest" and HOUSING_TITLE.search(title):
+        return "realestate"
+    return source.category
+
+
 def parse_feed(source: Source, body: bytes, now: datetime) -> list[Item]:
     items = []
     for entry in feedparser.parse(body).entries:
@@ -65,7 +79,7 @@ def parse_feed(source: Source, body: bytes, now: datetime) -> list[Item]:
         items.append(
             Item(
                 source.id,
-                source.category,
+                category_for(source, title),
                 canonical_url(link),
                 title,
                 title_key(title),

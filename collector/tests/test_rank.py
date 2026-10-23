@@ -1,13 +1,25 @@
 from datetime import datetime, timedelta, timezone
 
-from hub_collect.rank import Candidate, Signal, category_quotas, explore_picks, pick, recency, score_all, select
+from hub_collect.rank import (
+    Candidate,
+    Signal,
+    category_quotas,
+    explore_picks,
+    is_market_move,
+    pick,
+    recency,
+    score_all,
+    select,
+)
 from hub_collect.topics import TOPICS
 
 NOW = datetime(2026, 10, 17, tzinfo=timezone.utc)
 
 
-def cand(id, vector, source="a", category="invest", hours=0):
-    return Candidate(id, source, category, f"https://x.test/{id}", f"t{id}", "", NOW - timedelta(hours=hours), vector)
+def cand(id, vector, source="a", category="invest", hours=0, title=None):
+    return Candidate(
+        id, source, category, f"https://x.test/{id}", title or f"t{id}", "", NOW - timedelta(hours=hours), vector
+    )
 
 
 def test_topics_cover_every_category():
@@ -82,6 +94,47 @@ def test_pick_skips_near_duplicates():
     cands = [cand(1, (1.0, 0.0), source="a"), cand(2, (1.0, 0.01), source="b"), cand(3, (0.6, 0.8), source="c")]
     picked = pick(score_all(cands, seeds, NOW), size=2, per_source=3, per_category=0, duplicate=0.85)
     assert [p.candidate.id for p in picked] == [1, 3]
+
+
+def test_pick_keeps_one_market_move_story_per_stock():
+    # Measured 2026-10-23: one stock's rebound and next-day fall scored 0.70, under SAME_STORY.
+    seeds = [Signal("주제: A", (1.0, 0.0))]
+    cands = [
+        cand(1, (1.0, 0.0), source="a", title="[특징주] 삼성전자, 장초반 4%대 반등 중…SK하이닉스도 5.6%↑"),
+        cand(2, (0.7, 0.714), source="b", title="[특징주] 삼전·닉스, AI 투자 수익성 의혹 지속에 4∼5%대 하락(종합)"),
+        cand(3, (0.0, 1.0), source="c", title="[특징주] 현대로템, 해외 수주 불확실성에 10%대 급락"),
+    ]
+    picked = pick(score_all(cands, seeds, NOW), size=3, per_source=3, per_category=0)
+    assert [p.candidate.id for p in picked] == [1, 3]
+
+
+def test_ordinary_stories_as_close_as_a_market_move_pair_are_both_kept():
+    seeds = [Signal("주제: A", (1.0, 0.0))]
+    cands = [
+        cand(1, (1.0, 0.0), source="a", title="한은, 기준금리 동결"),
+        cand(2, (0.7, 0.714), source="b", title="정부, 내년 예산안 국회 제출"),
+    ]
+    picked = pick(score_all(cands, seeds, NOW), size=2, per_source=3, per_category=0)
+    assert [p.candidate.id for p in picked] == [1, 2]
+
+
+def test_one_story_in_two_languages_counts_once():
+    # Measured 2026-10-23: Korean and English reports of one event scored 0.67-0.75.
+    seeds = [Signal("주제: A", (1.0, 0.0))]
+    cands = [
+        cand(1, (1.0, 0.0), source="zdnet_kr", title="유전자 변형 개, 미군의 차세대 비밀병기 될까"),
+        cand(2, (0.72, 0.694), source="engadget", title="A startup called Warhound is genetically engineering dogs"),
+        cand(3, (0.72, 0.694), source="etnews", title="SK하이퍼, 글로벌 투자 유치 착수"),
+    ]
+    picked = pick(score_all(cands, seeds, NOW), size=3, per_source=3, per_category=0)
+    assert [p.candidate.id for p in picked] == [1, 3]
+
+
+def test_is_market_move_spots_price_move_headlines():
+    assert is_market_move("[특징주] 엘리스그룹, 코스닥 상장 첫날 29% 급락")
+    assert is_market_move("삼성전자, 낙폭 키워 3% 하락 마감…SK하이닉스도 4.2%↓(종합)")
+    assert not is_market_move("삼성바이오 3분기 영업이익 6천401억원")
+    assert not is_market_move("서울 아파트 실거래가 1년 새 15.5% 상승")
 
 
 def test_pick_reserves_a_minimum_per_category():

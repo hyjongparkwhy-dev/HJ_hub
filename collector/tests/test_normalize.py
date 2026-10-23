@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from hub_collect.normalize import canonical_url, clean_text, parse_feed, title_key
+from hub_collect.normalize import canonical_url, category_for, clean_text, parse_feed, title_key
 from hub_collect.sources import Source
 
 NOW = datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc)
@@ -61,3 +61,29 @@ def test_youtube_shorts_are_dropped_and_videos_kept():
     <entry><title>A full video</title><link rel="alternate" href="https://www.youtube.com/watch?v=xyz"/><updated>2026-10-18T00:00:00+00:00</updated></entry></feed>"""
     items = parse_feed(Source("yt_x", "https://www.youtube.com/feeds/videos.xml?channel_id=x", "tech", "en"), xml, datetime(2026, 10, 18, tzinfo=timezone.utc))
     assert [i.title for i in items] == ["A full video"]
+
+
+def test_housing_headlines_from_invest_feeds_count_as_real_estate():
+    assert category_for(SOURCE, "서울 아파트 매매가격 상승세 3주만에 둔화…0.13%↑") == "realestate"
+    assert category_for(SOURCE, "1∼9월 서울 전세 거래 28% 급감") == "realestate"
+    assert category_for(SOURCE, "US Housing Starts Fall to One of the Worst Paces Since Pandemic") == "realestate"
+    assert category_for(SOURCE, "[특징주] 삼성전자, 장초반 4%대 반등") == "invest"
+
+
+def test_lookalike_words_keep_the_feed_category():
+    # 공모주 청약 is an IPO subscription and 전세기 a charter flight, not housing.
+    assert category_for(SOURCE, "인도 지오 플랫폼스, IPO 공모주 청약 30배 몰려") == "invest"
+    assert category_for(SOURCE, "후티 공격에 사우디 전세기 요금 급등") == "invest"
+    assert category_for(SOURCE, "전세계 증시 동반 하락") == "invest"
+
+
+def test_only_invest_feeds_are_reclassified():
+    tech = Source("t", "https://example.com/rss", "tech", "ko")
+    assert category_for(tech, "홍콩 부동산 재벌의 황당한 저출생 해법") == "tech"
+
+
+def test_parse_feed_applies_the_title_category():
+    rss = """<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>
+<item><title>강남 아파트 실거래가지수 하락 전환</title><link>https://example.com/h</link></item>
+</channel></rss>""".encode("utf-8")
+    assert [i.category for i in parse_feed(SOURCE, rss, NOW)] == ["realestate"]

@@ -8,7 +8,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 
-from hub_collect.sources import CATEGORIES, is_video
+from hub_collect.sources import CATEGORIES, SOURCES, is_video
 
 HALF_LIFE_HOURS = 24.0
 FRESHNESS_WEIGHT = 0.3
@@ -30,6 +30,14 @@ EXPLORE_SKIP = ("realestate",)  # a known interest is not a new one; exploration
 EXPLORE_POOL = 100  # newest candidates compared; keeps the pure-Python similarity count to a few seconds
 COVERED = 0.7
 COVERAGE_CAP = 3
+# Price-move headlines (특징주, 장초반, 마감) of one stock on different days score 0.66-0.87 (measured 2026-10-23), often
+# under SAME_STORY; moves of related stocks reach 0.68-0.74, so a pair of them over this line counts as one story.
+MARKET_MOVE = re.compile(r"특징주|장\s?초반|마감|급등|급락|반등|강세|약세|[↑↓]")
+SAME_MARKET_MOVE = 0.65
+# A Korean and an English report of one event score only 0.67-0.75; Korean-English pairs at 0.67-0.70 were the same
+# event or a tightly linked one (2 days of items, measured 2026-10-23).
+SAME_STORY_ACROSS_LANGUAGES = 0.67
+LANGUAGE = {s.id: s.lang for s in SOURCES}
 # Notice boards, appointments, obituaries and photo captions match finance seeds by vocabulary alone.
 NOISE_TITLE = re.compile(r"^\s*[\[【](게시판|인사|부고|프로필|포토|사진|화보)[\]】]")
 
@@ -75,6 +83,21 @@ def _unit(vector: Sequence[float]) -> tuple[float, ...]:
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
+
+
+def is_market_move(title: str) -> bool:
+    return bool(MARKET_MOVE.search(title))
+
+
+def _same_story(a: Scored, b: Scored, duplicate: float) -> bool:
+    similarity = _dot(a.unit, b.unit)
+    if similarity >= duplicate:
+        return True
+    lang_a, lang_b = LANGUAGE.get(a.candidate.source), LANGUAGE.get(b.candidate.source)
+    if lang_a and lang_b and lang_a != lang_b and similarity >= min(duplicate, SAME_STORY_ACROSS_LANGUAGES):
+        return True
+    both_moves = is_market_move(a.candidate.title) and is_market_move(b.candidate.title)
+    return both_moves and similarity >= min(duplicate, SAME_MARKET_MOVE)
 
 
 def recency(at: datetime, now: datetime) -> float:
@@ -141,7 +164,7 @@ def pick(
     def fits(s: Scored) -> bool:
         if any(p is s for p in picked) or sum(p.candidate.source == s.candidate.source for p in picked) >= per_source:
             return False
-        return all(_dot(s.unit, p.unit) < duplicate for p in picked)
+        return not any(_same_story(s, p, duplicate) for p in picked)
 
     for category in CATEGORIES:
         taken = 0
@@ -196,7 +219,7 @@ def explore_picks(
                 continue
             if per_category_count[s.candidate.category] >= category_cap:
                 continue
-            if any(_dot(s.unit, t.unit) >= duplicate for t in taken):
+            if any(_same_story(s, t, duplicate) for t in taken):
                 continue
             extra.append(replace(s, explore=True, reason=""))
             taken.append(s)
