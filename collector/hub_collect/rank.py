@@ -38,6 +38,15 @@ SAME_MARKET_MOVE = 0.65
 # event or a tightly linked one (2 days of items, measured 2026-10-23).
 SAME_STORY_ACROSS_LANGUAGES = 0.67
 LANGUAGE = {s.id: s.lang for s in SOURCES}
+# Two reports of one event often share a name few other titles use (SK하이퍼, HD현대, Moderna) yet score 0.65-0.75.
+# On 48 hours of candidates (2026-10-24), pairs over 0.65 sharing a word found in at most 5 titles were the same
+# event 85-90% of the time; the rest were close relatives (one district's record sales, one person's remarks).
+SAME_STORY_SHARED_NAME = 0.65
+RARE_WORD_MAX = 5
+WORD = re.compile(r"[0-9A-Za-z가-힣]+")
+HANGUL = re.compile(r"[가-힣]")
+PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|은|는|이|가|을|를|의|에|도|로|와|과|만)$")
+NUMBER_WORD = re.compile(r"^\d+[가-힣]*$")  # dates and amounts: 10월, 463조, 2026년
 # Notice boards, appointments, obituaries and photo captions match finance seeds by vocabulary alone.
 NOISE_TITLE = re.compile(r"^\s*[\[【](게시판|인사|부고|프로필|포토|사진|화보)[\]】]")
 
@@ -85,16 +94,41 @@ def _dot(a: Sequence[float], b: Sequence[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
+def title_words(title: str) -> frozenset[str]:
+    """Words long enough to name something: Korean 3+ syllables without a trailing particle, other words 4+ letters."""
+    words = set()
+    for word in WORD.findall(title):
+        if NUMBER_WORD.match(word):
+            continue
+        if HANGUL.search(word):
+            word = PARTICLE.sub("", word)
+            if len(word) >= 3:
+                words.add(word.lower())
+        elif len(word) >= 4:
+            words.add(word.lower())
+    return frozenset(words)
+
+
+def rare_words(scored: Sequence[Scored]) -> dict[int, frozenset[str]]:
+    """Each candidate's words that at most RARE_WORD_MAX candidate titles use."""
+    words = {s.candidate.id: title_words(s.candidate.title) for s in scored}
+    counts = Counter(w for ws in words.values() for w in ws)
+    return {i: frozenset(w for w in ws if counts[w] <= RARE_WORD_MAX) for i, ws in words.items()}
+
+
 def is_market_move(title: str) -> bool:
     return bool(MARKET_MOVE.search(title))
 
 
-def _same_story(a: Scored, b: Scored, duplicate: float) -> bool:
+def _same_story(a: Scored, b: Scored, duplicate: float, rare: Mapping[int, frozenset[str]]) -> bool:
     similarity = _dot(a.unit, b.unit)
     if similarity >= duplicate:
         return True
     lang_a, lang_b = LANGUAGE.get(a.candidate.source), LANGUAGE.get(b.candidate.source)
     if lang_a and lang_b and lang_a != lang_b and similarity >= min(duplicate, SAME_STORY_ACROSS_LANGUAGES):
+        return True
+    shared = rare.get(a.candidate.id, frozenset()) & rare.get(b.candidate.id, frozenset())
+    if shared and similarity >= min(duplicate, SAME_STORY_SHARED_NAME):
         return True
     both_moves = is_market_move(a.candidate.title) and is_market_move(b.candidate.title)
     return both_moves and similarity >= min(duplicate, SAME_MARKET_MOVE)
@@ -159,12 +193,13 @@ def pick(
     for every category) so one busy field cannot fill the whole briefing; slots a category cannot fill go to the
     best of the rest. One story covered by several outlets counts once."""
     picked: list[Scored] = []
+    rare = rare_words(scored)
     limits = quota if quota is not None else dict.fromkeys(CATEGORIES, per_category)
 
     def fits(s: Scored) -> bool:
         if any(p is s for p in picked) or sum(p.candidate.source == s.candidate.source for p in picked) >= per_source:
             return False
-        return not any(_same_story(s, p, duplicate) for p in picked)
+        return not any(_same_story(s, p, duplicate, rare) for p in picked)
 
     for category in CATEGORIES:
         taken = 0
@@ -206,6 +241,7 @@ def explore_picks(
     ranked = sorted(
         ((coverage(s), recency(s.candidate.at, now), s) for s in pool[:EXPLORE_POOL]), key=lambda t: t[:2], reverse=True
     )
+    rare = rare_words(scored)
     taken = list(picked)
     extra: list[Scored] = []
     for category_cap in (per_category, count):  # first spread over topics, then fill what is left
@@ -219,7 +255,7 @@ def explore_picks(
                 continue
             if per_category_count[s.candidate.category] >= category_cap:
                 continue
-            if any(_same_story(s, t, duplicate) for t in taken):
+            if any(_same_story(s, t, min(duplicate, COVERED), rare) for t in taken):
                 continue
             extra.append(replace(s, explore=True, reason=""))
             taken.append(s)

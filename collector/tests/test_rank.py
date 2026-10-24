@@ -10,6 +10,7 @@ from hub_collect.rank import (
     recency,
     score_all,
     select,
+    title_words,
 )
 from hub_collect.topics import TOPICS
 
@@ -130,6 +131,34 @@ def test_one_story_in_two_languages_counts_once():
     assert [p.candidate.id for p in picked] == [1, 3]
 
 
+def test_stories_sharing_a_rare_name_count_once():
+    # Measured 2026-10-24: two Korean reports of SK하이퍼's funding scored 0.68, under SAME_STORY.
+    seeds = [Signal("주제: A", (1.0, 0.0))]
+    cands = [
+        cand(1, (1.0, 0.0), source="a", title="SK하이퍼, 국내에 463조 규모…초대형 AI 데이터센터 짓는다"),
+        cand(2, (0.68, 0.733), source="b", title="SK하이퍼, 글로벌 투자 유치 착수…내년 첫 매출 목표"),
+        cand(3, (0.68, 0.733), source="c", title="미국 전력 수요 급증 전망"),
+    ]
+    picked = pick(score_all(cands, seeds, NOW), size=3, per_source=3, per_category=0)
+    assert [p.candidate.id for p in picked] == [1, 3]
+
+
+def test_a_name_many_stories_mention_does_not_join_them():
+    seeds = [Signal("주제: A", (1.0, 0.0, 0.0))]
+    cands = [
+        cand(1, (1.0, 0.0, 0.0), source="a", title="스타링크, 우크라이나 속도 제한 해제"),
+        cand(2, (0.68, 0.733, 0.0), source="b", title="스타링크 대체재 찾는 유럽"),
+    ] + [cand(10 + i, (0.0, 0.0, 1.0), source=f"s{i}", title=f"스타링크 소식 {i}") for i in range(4)]
+    picked = pick(score_all(cands, seeds, NOW), size=2, per_source=3, per_category=0)
+    assert [p.candidate.id for p in picked] == [1, 2]
+
+
+def test_title_words_keep_names_and_drop_particles_numbers_and_short_words():
+    assert title_words("SK하이퍼가 463조 규모 AI 데이터센터를 짓는다") == {"sk하이퍼", "데이터센터", "짓는다"}
+    assert title_words("Moderna shares plunge on leak") == {"moderna", "shares", "plunge", "leak"}
+    assert "10월" not in title_words("2026년 10월 22일자 지표")
+
+
 def test_is_market_move_spots_price_move_headlines():
     assert is_market_move("[특징주] 엘리스그룹, 코스닥 상장 첫날 29% 급락")
     assert is_market_move("삼성전자, 낙폭 키워 3% 하락 마감…SK하이닉스도 4.2%↓(종합)")
@@ -167,6 +196,18 @@ def test_explore_picks_covered_stories_far_from_the_interests():
     assert all(e.explore and e.reason == "" for e in extra)
     assert {e.candidate.id for e in extra} <= {10, 11, 12, 13}
     assert len({e.candidate.id for e in extra} & {10, 11, 12}) == 1  # the same story is never taken twice
+
+
+def test_explore_takes_one_story_per_cluster_of_coverage():
+    # Measured 2026-10-24: two Starlink stories 0.72 apart were both explorations; COVERED (0.7) treats them as one.
+    seeds = [Signal("주제: A", (1.0,) + (0.0,) * 9)]
+    near = [cand(i, (1.0,) + (0.0,) * 9, source=f"n{i}") for i in range(1, 7)]
+    close = (0.1, 0.0, 0.0, 0.72, 0.694) + (0.0,) * 5
+    far = [_far(10, 3, "x"), cand(11, close, source="y", hours=1), _far(13, 5, "w")]
+    scored = score_all(near + far, seeds, NOW)
+    extra = explore_picks(scored, [s for s in scored if s.candidate.id < 10], 2, NOW, per_category=2)
+    assert len({e.candidate.id for e in extra} & {10, 11}) == 1
+    assert 13 in {e.candidate.id for e in extra}
 
 
 def test_explore_never_repeats_picked_or_duplicate_stories_and_spreads_topics():
